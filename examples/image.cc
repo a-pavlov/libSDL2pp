@@ -47,8 +47,8 @@ int main(int, char*[]) try {
 	// one is loaded through an intermediary surface
 	Surface surf(TESTDATA_DIR "/test.png");
 
-	Texture sprite1(render, TESTDATA_DIR "/test.png");
-	Texture sprite2(render, surf);
+	Texture sprite1(render.createTexture(TESTDATA_DIR "/test.png"));
+	Texture sprite2(render.createTexture(surf));
 
 	sprite1.SetBlendMode(SDL_BLENDMODE_BLEND);
 	sprite2.SetBlendMode(SDL_BLENDMODE_BLEND);

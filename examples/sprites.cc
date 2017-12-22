@@ -44,7 +44,7 @@ int main(int, char*[]) try {
 	Renderer render(window, -1, SDL_RENDERER_ACCELERATED);
 
 	// Load sprite texture
-	Texture sprite(render, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, 4, 4);
+	Texture sprite(render.createTexture(SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, 4, 4));
 	sprite.Update(NullOpt, pixels, 4 * 4);
 	sprite.SetBlendMode(SDL_BLENDMODE_BLEND);
 

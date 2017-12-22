@@ -300,7 +300,7 @@ BEGIN_TEST(int, char*[])
 
 	if (renderer.TargetSupported()) {
 		// Render target
-		Texture target(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 32, 32);
+		Texture target(renderer.createTexture(SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 32, 32));
 
 		EXPECT_EQUAL(target.GetAccess(), SDL_TEXTUREACCESS_TARGET);
 
@@ -342,7 +342,7 @@ BEGIN_TEST(int, char*[])
 		renderer.SetDrawColor(0, 0, 0);
 		renderer.Clear();
 
-		Texture texture(renderer, TESTDATA_DIR "/crate.png");
+		Texture texture(renderer.createTexture(TESTDATA_DIR "/crate.png"));
 
 		EXPECT_EQUAL(texture.GetAccess(), SDL_TEXTUREACCESS_STATIC);
 

@@ -28,10 +28,28 @@
 #include <SDL_blendmode.h>
 
 #include <SDL2pp/Optional.hh>
-#include <SDL2pp/Rect.hh>
-#include <SDL2pp/Config.hh>
 #include <SDL2pp/Export.hh>
 #include <SDL2pp/Color.hh>
+
+#include <utility>
+#include <algorithm>
+#include <cassert>
+
+#include <SDL2pp/Config.hh>
+
+#include <SDL_render.h>
+#include <SDL2pp/Config.hh>
+#include <SDL2pp/Exception.hh>
+#include <SDL2pp/Rect.hh>
+#include <SDL2pp/Surface.hh>
+
+#ifdef SDL2PP_WITH_IMAGE
+#	include <SDL_image.h>
+#endif
+
+#ifdef SDL2PP_WITH_IMAGE
+#	include <SDL2pp/RWops.hh>
+#endif
 
 struct SDL_Texture;
 
@@ -111,7 +129,10 @@ public:
 		/// \see http://wiki.libsdl.org/SDL_LockTexture
 		///
 		////////////////////////////////////////////////////////////
-		LockHandle(Texture* texture, const Optional<Rect>& rect);
+		LockHandle(Texture* texture, const Optional<Rect>& rect) : texture_(texture) {
+            if (SDL_LockTexture(texture_->Get(), rect ? &*rect : nullptr, &pixels_, &pitch_) != 0)
+                throw Exception("SDL_LockTexture");
+        }
 
 	public:
 		////////////////////////////////////////////////////////////
@@ -121,7 +142,8 @@ public:
 		/// assignment
 		///
 		////////////////////////////////////////////////////////////
-		LockHandle();
+		LockHandle() : texture_(nullptr), pixels_(nullptr), pitch_(0) {
+        }
 
 		////////////////////////////////////////////////////////////
 		/// \brief Destructor
@@ -131,7 +153,10 @@ public:
 		/// \see http://wiki.libsdl.org/SDL_UnlockTexture
 		///
 		////////////////////////////////////////////////////////////
-		~LockHandle();
+		~LockHandle() {
+            if (texture_ != nullptr)
+                SDL_UnlockTexture(texture_->Get());
+        }
 
 		////////////////////////////////////////////////////////////
 		/// \brief Move constructor
@@ -139,7 +164,11 @@ public:
 		/// \param[in] other SDL2pp::Texture::LockHandle to move data from
 		///
 		////////////////////////////////////////////////////////////
-		LockHandle(LockHandle&& other) noexcept;
+		LockHandle(LockHandle&& other) noexcept: texture_(other.texture_), pixels_(other.pixels_), pitch_(other.pitch_) {
+            other.texture_ = nullptr;
+            other.pixels_ = nullptr;
+            other.pitch_ = 0;
+        }
 
 		////////////////////////////////////////////////////////////
 		/// \brief Move assignment operator
@@ -149,7 +178,23 @@ public:
 		/// \returns Reference to self
 		///
 		////////////////////////////////////////////////////////////
-		LockHandle& operator=(LockHandle&& other) noexcept;
+		LockHandle& operator=(LockHandle&& other) noexcept {
+            if (&other == this)
+                return *this;
+
+            if (texture_ != nullptr)
+                SDL_UnlockTexture(texture_->Get());
+
+            texture_ = other.texture_;
+            pixels_ = other.pixels_;
+            pitch_ = other.pitch_;
+
+            other.texture_ = nullptr;
+            other.pixels_ = nullptr;
+            other.pitch_ = 0;
+
+            return *this;
+        }
 
 		////////////////////////////////////////////////////////////
 		/// \brief Deleted copy constructor
@@ -173,7 +218,9 @@ public:
 		/// \returns Pointer to raw pixel data of locked region
 		///
 		////////////////////////////////////////////////////////////
-		void* GetPixels() const;
+		void* GetPixels() const {
+            return pixels_;
+        }
 
 		////////////////////////////////////////////////////////////
 		/// \brief Get pitch of locked pixel data
@@ -182,7 +229,9 @@ public:
 		///          padding between lines
 		///
 		////////////////////////////////////////////////////////////
-		int GetPitch() const;
+		int GetPitch() const {
+            return pitch_;
+        }
 	};
 
 public:
@@ -192,60 +241,9 @@ public:
 	/// \param[in] texture Existing SDL_Texture to manage
 	///
 	////////////////////////////////////////////////////////////
-	explicit Texture(SDL_Texture* texture);
-
-	////////////////////////////////////////////////////////////
-	/// \brief Create empty texture
-	///
-	/// \param[in] renderer Rendering context to create texture for
-	/// \param[in] format One of the enumerated values in SDL_PixelFormatEnum
-	/// \param[in] access One of the enumerated values in SDL_TextureAccess
-	/// \param[in] w Width of the texture in pixels
-	/// \param[in] h Height of the texture in pixels
-	///
-	/// \throws SDL2pp::Exception
-	///
-	/// \see http://wiki.libsdl.org/SDL_CreateTexture
-	///
-	////////////////////////////////////////////////////////////
-	Texture(Renderer& renderer, Uint32 format, int access, int w, int h);
-
-#ifdef SDL2PP_WITH_IMAGE
-	////////////////////////////////////////////////////////////
-	/// \brief Create texture loading it via RWops
-	///
-	/// \param[in] renderer Rendering context to create texture for
-	/// \param[in] rwops RWops used to access an image file
-	///
-	/// \throws SDL2pp::Exception
-	///
-	////////////////////////////////////////////////////////////
-	Texture(Renderer& renderer, RWops& rwops);
-
-	////////////////////////////////////////////////////////////
-	/// \brief Create texture loading it from file
-	///
-	/// \param[in] renderer Rendering context to create texture for
-	/// \param[in] filename Path to an image file
-	///
-	/// \throws SDL2pp::Exception
-	///
-	////////////////////////////////////////////////////////////
-	Texture(Renderer& renderer, const std::string& filename);
-#endif
-
-	////////////////////////////////////////////////////////////
-	/// \brief Create texture from surface
-	///
-	/// \param[in] renderer Rendering context to create texture for
-	/// \param[in] surface Surface containing pixel data used to fill the texture
-	///
-	/// \throws SDL2pp::Exception
-	///
-	/// \see http://wiki.libsdl.org/SDL_CreateTextureFromSurface
-	///
-	////////////////////////////////////////////////////////////
-	Texture(Renderer& renderer, const Surface& surface);
+	explicit Texture(SDL_Texture* texture) : texture_(texture) {
+		assert(texture);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Destructor
@@ -253,7 +251,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_DestroyTexture
 	///
 	////////////////////////////////////////////////////////////
-	virtual ~Texture();
+	virtual ~Texture() {
+		if (texture_ != nullptr)
+			SDL_DestroyTexture(texture_);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move constructor
@@ -261,7 +262,9 @@ public:
 	/// \param[in] other SDL2pp::Texture object to move data from
 	///
 	////////////////////////////////////////////////////////////
-	Texture(Texture&& other) noexcept;
+	Texture(Texture&& other) noexcept : texture_(other.texture_) {
+		other.texture_ = nullptr;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move assignment
@@ -271,7 +274,15 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	Texture& operator=(Texture&& other) noexcept;
+	Texture& operator=(Texture&& other) noexcept {
+		if (&other == this)
+			return *this;
+		if (texture_ != nullptr)
+			SDL_DestroyTexture(texture_);
+		texture_ = other.texture_;
+		other.texture_ = nullptr;
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor
@@ -295,7 +306,9 @@ public:
 	/// \returns Pointer to managed SDL_Texture structure
 	///
 	////////////////////////////////////////////////////////////
-	SDL_Texture* Get() const;
+	SDL_Texture* Get() const {
+		return texture_;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Update the given texture rectangle with new pixel data
@@ -313,7 +326,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_UpdateTexture
 	///
 	////////////////////////////////////////////////////////////
-	Texture& Update(const Optional<Rect>& rect, const void* pixels, int pitch);
+	Texture& Update(const Optional<Rect>& rect, const void* pixels, int pitch) {
+		if (SDL_UpdateTexture(texture_, rect ? &*rect : nullptr, pixels, pitch) != 0)
+			throw Exception("SDL_UpdateTexture");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Update the given texture rectangle with new pixel data taken from surface
@@ -334,7 +351,23 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_UpdateTexture
 	///
 	////////////////////////////////////////////////////////////
-	Texture& Update(const Optional<Rect>& rect, Surface& surface);
+	Texture& Update(const Optional<Rect>& rect, Surface& surface) {
+		Rect real_rect = rect ? *rect : Rect(0, 0, GetWidth(), GetHeight());
+
+		real_rect.w = std::min(real_rect.w, surface.GetWidth());
+		real_rect.h = std::min(real_rect.h, surface.GetHeight());
+
+		if (GetFormat() == surface.GetFormat()) {
+			Surface::LockHandle lock = surface.Lock();
+
+			return Update(real_rect, lock.GetPixels(), lock.GetPitch());
+		} else {
+			Surface converted = surface.Convert(GetFormat());
+			Surface::LockHandle lock = converted.Lock();
+
+			return Update(real_rect, lock.GetPixels(), lock.GetPitch());
+		}
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Update the given texture rectangle with new pixel data taken from surface
@@ -355,7 +388,23 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_UpdateTexture
 	///
 	////////////////////////////////////////////////////////////
-	Texture& Update(const Optional<Rect>& rect, Surface&& surface);
+	Texture& Update(const Optional<Rect>& rect, Surface&& surface) {
+		Rect real_rect = rect ? *rect : Rect(0, 0, GetWidth(), GetHeight());
+
+		real_rect.w = std::min(real_rect.w, surface.GetWidth());
+		real_rect.h = std::min(real_rect.h, surface.GetHeight());
+
+		if (GetFormat() == surface.GetFormat()) {
+			Surface::LockHandle lock = surface.Lock();
+
+			return Update(real_rect, lock.GetPixels(), lock.GetPitch());
+		} else {
+			Surface converted = surface.Convert(GetFormat());
+			Surface::LockHandle lock = converted.Lock();
+
+			return Update(real_rect, lock.GetPixels(), lock.GetPitch());
+		}
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Update the given texture rectangle with new pixel data
@@ -376,7 +425,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_UpdateYUVTexture
 	///
 	////////////////////////////////////////////////////////////
-	Texture& UpdateYUV(const Optional<Rect>& rect, const Uint8* yplane, int ypitch, const Uint8* uplane, int upitch, const Uint8* vplane, int vpitch);
+	Texture& UpdateYUV(const Optional<Rect>& rect, const Uint8* yplane, int ypitch, const Uint8* uplane, int upitch, const Uint8* vplane, int vpitch) {
+		if (SDL_UpdateYUVTexture(texture_, rect ? &*rect : nullptr, yplane, ypitch, uplane, upitch, vplane, vpitch) != 0)
+			throw Exception("SDL_UpdateYUVTexture");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the blend mode for a texture, used by SDL2pp::Renderer::Copy
@@ -390,7 +443,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetTextureBlendMode
 	///
 	////////////////////////////////////////////////////////////
-	Texture& SetBlendMode(SDL_BlendMode blendMode = SDL_BLENDMODE_NONE);
+	Texture& SetBlendMode(SDL_BlendMode blendMode = SDL_BLENDMODE_NONE) {
+		if (SDL_SetTextureBlendMode(texture_, blendMode) != 0)
+			throw Exception("SDL_SetTextureBlendMode");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set an additional alpha value multiplied into render copy operations
@@ -404,7 +461,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetTextureAlphaMod
 	///
 	////////////////////////////////////////////////////////////
-	Texture& SetAlphaMod(Uint8 alpha = 255);
+	Texture& SetAlphaMod(Uint8 alpha = 255) {
+		if (SDL_SetTextureAlphaMod(texture_, alpha) != 0)
+			throw Exception("SDL_SetTextureAlphaMod");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set an additional color value multiplied into render copy operations
@@ -420,7 +481,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetTextureColorMod
 	///
 	////////////////////////////////////////////////////////////
-	Texture& SetColorMod(Uint8 r = 255, Uint8 g = 255, Uint8 b = 255);
+	Texture& SetColorMod(Uint8 r = 255, Uint8 g = 255, Uint8 b = 255) {
+		if (SDL_SetTextureColorMod(texture_, r, g, b) != 0)
+			throw Exception("SDL_SetTextureColorMod");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set an additional color value multiplied into render copy operations
@@ -435,7 +500,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetTextureColorMod
 	///
 	////////////////////////////////////////////////////////////
-	Texture& SetColorAndAlphaMod(const Color& color = Color{255, 255, 255, SDL_ALPHA_OPAQUE});
+	Texture& SetColorAndAlphaMod(const Color& color = Color{255, 255, 255, SDL_ALPHA_OPAQUE}) {
+		return SetColorMod(color.r, color.g, color.b).SetAlphaMod(color.a);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Lock texture for write-only pixel access
@@ -450,7 +517,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_LockTexture
 	///
 	////////////////////////////////////////////////////////////
-	LockHandle Lock(const Optional<Rect>& rect = NullOpt);
+	LockHandle Lock(const Optional<Rect>& rect = NullOpt) {
+		return LockHandle(this, rect);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get texture format
@@ -464,7 +533,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_PixelFormatEnum
 	///
 	////////////////////////////////////////////////////////////
-	Uint32 GetFormat() const;
+	Uint32 GetFormat() const {
+		Uint32 format;
+		if (SDL_QueryTexture(texture_, &format, nullptr, nullptr, nullptr) != 0)
+			throw Exception("SDL_QueryTexture");
+		return format;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get texture access mode
@@ -477,7 +551,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_TextureAccess
 	///
 	////////////////////////////////////////////////////////////
-	int GetAccess() const;
+	int GetAccess() const {
+		int access;
+		if (SDL_QueryTexture(texture_, nullptr, &access, nullptr, nullptr) != 0)
+			throw Exception("SDL_QueryTexture");
+		return access;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get texture image width
@@ -489,7 +568,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_QueryTexture
 	///
 	////////////////////////////////////////////////////////////
-	int GetWidth() const;
+	int GetWidth() const {
+		int w;
+		if (SDL_QueryTexture(texture_, nullptr, nullptr, &w, nullptr) != 0)
+			throw Exception("SDL_QueryTexture");
+		return w;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get texture image height
@@ -501,7 +585,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_QueryTexture
 	///
 	////////////////////////////////////////////////////////////
-	int GetHeight() const;
+	int GetHeight() const {
+		int h;
+		if (SDL_QueryTexture(texture_, nullptr, nullptr, nullptr, &h) != 0)
+			throw Exception("SDL_QueryTexture");
+		return h;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get texture image size
@@ -513,7 +602,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_QueryTexture
 	///
 	////////////////////////////////////////////////////////////
-	Point GetSize() const;
+	Point GetSize() const {
+		int w, h;
+		if (SDL_QueryTexture(texture_, nullptr, nullptr, &w, &h) != 0)
+			throw Exception("SDL_QueryTexture");
+		return Point(w, h);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the additional alpha value multiplied into render copy operations
@@ -525,7 +619,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetTextureAlphaMod
 	///
 	////////////////////////////////////////////////////////////
-	Uint8 GetAlphaMod() const;
+	Uint8 GetAlphaMod() const {
+		Uint8 alpha;
+		if (SDL_GetTextureAlphaMod(texture_, &alpha) != 0)
+			throw Exception("SDL_GetTextureAlphaMod");
+		return alpha;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the blend mode used for texture copy operations
@@ -537,7 +636,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetTextureBlendMode
 	///
 	////////////////////////////////////////////////////////////
-	SDL_BlendMode GetBlendMode() const;
+	SDL_BlendMode GetBlendMode() const {
+		SDL_BlendMode mode;
+		if (SDL_GetTextureBlendMode(texture_, &mode) != 0)
+			throw Exception("SDL_GetTextureBlendMode");
+		return mode;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the additional color value multiplied into render copy operations
@@ -551,7 +655,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetTextureColorMod
 	///
 	////////////////////////////////////////////////////////////
-	void GetColorMod(Uint8& r, Uint8& g, Uint8 &b) const;
+	void GetColorMod(Uint8& r, Uint8& g, Uint8 &b) const {
+		if (SDL_GetTextureColorMod(texture_, &r, &g, &b) != 0)
+			throw Exception("SDL_GetTextureColorMod");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the additional color value multiplied into render copy operations
@@ -564,7 +671,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetTextureColorMod
 	///
 	////////////////////////////////////////////////////////////
-	Color GetColorAndAlphaMod() const;
+	Color GetColorAndAlphaMod() const {
+		Color color;
+		GetColorMod(color.r, color.g, color.b);
+		color.a = GetAlphaMod();
+		return color;
+	}
 };
 
 }

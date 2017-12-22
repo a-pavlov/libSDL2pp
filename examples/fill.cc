@@ -47,7 +47,7 @@ static int Run() {
 	// one is loaded through an intermediary surface
 	Surface surf(TESTDATA_DIR "/crate.png");
 
-	Texture sprite(render, TESTDATA_DIR "/crate.png");
+	Texture sprite(render.createTexture(TESTDATA_DIR "/crate.png"));
 
 	while (1) {
 		// Process input

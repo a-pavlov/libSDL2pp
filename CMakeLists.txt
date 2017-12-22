@@ -126,13 +126,10 @@ SET(LIBRARY_SOURCES
 	SDL2pp/AudioLock.cc
 	SDL2pp/AudioSpec.cc
         SDL2pp/RWops.cc
-		SDL2pp/Renderer.cc
-	SDL2pp/SDL.cc
+        SDL2pp/SDL.cc
 	SDL2pp/Surface.cc
 	SDL2pp/SurfaceLock.cc
-	SDL2pp/Texture.cc
-	SDL2pp/TextureLock.cc
-	SDL2pp/Wav.cc
+		SDL2pp/Wav.cc
 	SDL2pp/Window.cc
 )
 
