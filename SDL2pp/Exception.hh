@@ -25,6 +25,7 @@
 #include <string>
 #include <stdexcept>
 
+#include <SDL.h>
 #include <SDL2pp/Export.hh>
 
 namespace SDL2pp {
@@ -74,7 +75,12 @@ private:
 	std::string sdl_error_;    ///< SDL error string
 
 private:
-	static std::string make_what(const char* sdl_function, const char* sdl_error);
+	static std::string make_what(const char* sdl_function, const char* sdl_error) {
+		std::string tmp(sdl_function);
+		tmp += " failed: ";
+		tmp += sdl_error;
+		return tmp;
+	}
 
 public:
 	////////////////////////////////////////////////////////////
@@ -83,7 +89,10 @@ public:
 	/// \param[in] function Name of SDL function which generated an error
 	///
 	////////////////////////////////////////////////////////////
-	explicit Exception(const char* function);
+	explicit Exception(const char* function) : std::runtime_error(make_what(function, SDL_GetError())),
+			  sdl_function_(function),
+			  sdl_error_(SDL_GetError()) {
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Copy constructor
@@ -95,7 +104,7 @@ public:
 	/// \brief Destructor
 	///
 	////////////////////////////////////////////////////////////
-	virtual ~Exception() noexcept;
+	virtual ~Exception() noexcept {}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get name of SDL function which caused an error
@@ -103,7 +112,9 @@ public:
 	/// \returns Name of function which caused an error
 	///
 	////////////////////////////////////////////////////////////
-	std::string GetSDLFunction() const;
+	std::string GetSDLFunction() const {
+        return sdl_function_;
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get SDL2 error text
@@ -113,7 +124,7 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetError
 	///
 	////////////////////////////////////////////////////////////
-	std::string GetSDLError() const;
+	std::string GetSDLError() const { return sdl_error_; }
 };
 
 }

@@ -31,8 +31,6 @@
 
 namespace SDL2pp {
 
-class Rect;
-
 ////////////////////////////////////////////////////////////
 /// \brief 2D point
 ///
@@ -380,48 +378,6 @@ public:
 		y *= other.y;
 		return *this;
 	}
-
-	////////////////////////////////////////////////////////////
-	/// \brief Get a point with coordinates modified so it fits
-	///        into a given rect
-	///
-	/// \param[in] rect Rectangle to clamp with
-	///
-	/// \returns Clamped point
-	///
-	////////////////////////////////////////////////////////////
-	Point GetClamped(const Rect& rect) const;
-
-	////////////////////////////////////////////////////////////
-	/// \brief Clamp point coordinates to make it fit into a
-	///        given rect
-	///
-	/// \param[in] rect Rectangle to clamp with
-	///
-	/// \returns Reference to self
-	///
-	////////////////////////////////////////////////////////////
-	Point& Clamp(const Rect& rect);
-
-	////////////////////////////////////////////////////////////
-	/// \brief Get a point wrapped within a specified rect
-	///
-	/// \param[in] rect Rectangle to wrap with
-	///
-	/// \returns Wrapped point
-	///
-	////////////////////////////////////////////////////////////
-	Point GetWrapped(const Rect& rect) const;
-
-	////////////////////////////////////////////////////////////
-	/// \brief Wrap point coordinates within a spedified rect
-	///
-	/// \param[in] rect Rectangle to wrap with
-	///
-	/// \returns Reference to self
-	///
-	////////////////////////////////////////////////////////////
-	Point& Wrap(const Rect& rect);
 };
 
 }
@@ -461,7 +417,11 @@ constexpr bool operator!=(const SDL2pp::Point& a, const SDL2pp::Point& b) {
 /// \returns True if a < b
 ///
 ////////////////////////////////////////////////////////////
-SDL2PP_EXPORT bool operator<(const SDL2pp::Point& a, const SDL2pp::Point& b);
+inline bool operator<(const SDL2pp::Point& a, const SDL2pp::Point& b) {
+	if (a.x == b.x)
+		return a.y < b.y;
+	return a.x < b.x;
+}
 
 ////////////////////////////////////////////////////////////
 /// \brief Stream output operator overload for SDL2pp::Point
@@ -472,7 +432,10 @@ SDL2PP_EXPORT bool operator<(const SDL2pp::Point& a, const SDL2pp::Point& b);
 /// \returns stream
 ///
 ////////////////////////////////////////////////////////////
-SDL2PP_EXPORT std::ostream& operator<<(std::ostream& stream, const SDL2pp::Point& point);
+inline std::ostream& operator<<(std::ostream& stream, const SDL2pp::Point& point) {
+	stream << "[x:" << point.x << ",y:" << point.y << "]";
+	return stream;
+}
 
 namespace std {
 

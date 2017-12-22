@@ -246,7 +246,10 @@ constexpr bool operator!=(const SDL2pp::Color& a, const SDL2pp::Color& b) {
 /// \returns stream
 ///
 ////////////////////////////////////////////////////////////
-SDL2PP_EXPORT std::ostream& operator<<(std::ostream& stream, const SDL2pp::Color& color);
+inline std::ostream& operator<<(std::ostream& stream, const SDL2pp::Color& color) {
+	 stream << "[r:" << static_cast<int>(color.r) << ",g:" << static_cast<int>(color.g) << ",b:" << static_cast<int>(color.b) << ",a:" << static_cast<int>(color.a) << "]";
+	 return stream;
+}
 
 namespace std {
 

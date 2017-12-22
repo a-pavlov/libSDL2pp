@@ -382,32 +382,33 @@ BEGIN_TEST(int, char*[])
 	{
 		// clamp
 		Rect rect(1, 2, 3, 4);
-		EXPECT_EQUAL(Point(0, 0).GetClamped(rect), Point(1, 2));
-		EXPECT_EQUAL(Point(0, 0).Clamp(rect), Point(1, 2));
+		EXPECT_EQUAL(rect.GetClamped(Point(0, 0)), Point(1, 2));
+		EXPECT_EQUAL(rect.GetClamped(Point(0, 0)), Point(1, 2));
 
-		EXPECT_EQUAL(Point(10, 10).GetClamped(rect), Point(3, 5));
-		EXPECT_EQUAL(Point(10, 10).Clamp(rect), Point(3, 5));
+		EXPECT_EQUAL(rect.GetClamped(Point(10, 10)), Point(3, 5));
+		EXPECT_EQUAL(rect.GetClamped(Point(10, 10)), Point(3, 5));
 	}
 
 	{
 		// wrap
-		EXPECT_EQUAL(Point(10, 20).GetWrapped(Rect(10, 20, 30, 40)), Point(10, 20));
-		EXPECT_EQUAL(Point(39, 59).GetWrapped(Rect(10, 20, 30, 40)), Point(39, 59));
+		Rect r(10, 20, 30, 40);
+		EXPECT_EQUAL(r.GetWrapped(Point(10, 20)), Point(10, 20));
+		EXPECT_EQUAL(r.GetWrapped(Point(39, 59)), Point(39, 59));
 
-		EXPECT_EQUAL(Point(9, 20).GetWrapped(Rect(10, 20, 30, 40)), Point(39, 20));
-		EXPECT_EQUAL(Point(40, 20).GetWrapped(Rect(10, 20, 30, 40)), Point(10, 20));
-		EXPECT_EQUAL(Point(10, 19).GetWrapped(Rect(10, 20, 30, 40)), Point(10, 59));
-		EXPECT_EQUAL(Point(10, 60).GetWrapped(Rect(10, 20, 30, 40)), Point(10, 20));
+		EXPECT_EQUAL(r.GetWrapped(Point(9, 20)), Point(39, 20));
+		EXPECT_EQUAL(r.GetWrapped(Point(40, 20)), Point(10, 20));
+		EXPECT_EQUAL(r.GetWrapped(Point(10, 19)), Point(10, 59));
+		EXPECT_EQUAL(r.GetWrapped(Point(10, 60)), Point(10, 20));
 
-		EXPECT_EQUAL(Point(-50, -60).GetWrapped(Rect(10, 20, 30, 40)), Point(10, 20));
-		EXPECT_EQUAL(Point(-20, -20).GetWrapped(Rect(10, 20, 30, 40)), Point(10, 20));
-		EXPECT_EQUAL(Point(10, 20).GetWrapped(Rect(10, 20, 30, 40)), Point(10, 20));
-		EXPECT_EQUAL(Point(40, 60).GetWrapped(Rect(10, 20, 30, 40)), Point(10, 20));
-		EXPECT_EQUAL(Point(70, 100).GetWrapped(Rect(10, 20, 30, 40)), Point(10, 20));
-		EXPECT_EQUAL(Point(100, 140).GetWrapped(Rect(10, 20, 30, 40)), Point(10, 20));
+		EXPECT_EQUAL(r.GetWrapped(Point(-50, -60)), Point(10, 20));
+		EXPECT_EQUAL(r.GetWrapped(Point(-20, -20)), Point(10, 20));
+		EXPECT_EQUAL(r.GetWrapped(Point(10, 20)), Point(10, 20));
+		EXPECT_EQUAL(r.GetWrapped(Point(40, 60)), Point(10, 20));
+		EXPECT_EQUAL(r.GetWrapped(Point(70, 100)), Point(10, 20));
+		EXPECT_EQUAL(r.GetWrapped(Point(100, 140)), Point(10, 20));
 
-		EXPECT_EQUAL(Point(-19, -19).GetWrapped(Rect(10, 20, 30, 40)), Point(11, 21));
-		EXPECT_EQUAL(Point(-21, -21).GetWrapped(Rect(10, 20, 30, 40)), Point(39, 59));
+		EXPECT_EQUAL(r.GetWrapped(Point(-19, -19)), Point(11, 21));
+		EXPECT_EQUAL(r.GetWrapped(Point(-21, -21)), Point(39, 59));
 	}
 
 	{

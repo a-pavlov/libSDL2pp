@@ -125,12 +125,8 @@ SET(LIBRARY_SOURCES
 	SDL2pp/AudioDevice.cc
 	SDL2pp/AudioLock.cc
 	SDL2pp/AudioSpec.cc
-	SDL2pp/Color.cc
-	SDL2pp/Exception.cc
-	SDL2pp/Point.cc
-	SDL2pp/RWops.cc
-	SDL2pp/Rect.cc
-	SDL2pp/Renderer.cc
+        SDL2pp/RWops.cc
+		SDL2pp/Renderer.cc
 	SDL2pp/SDL.cc
 	SDL2pp/Surface.cc
 	SDL2pp/SurfaceLock.cc
@@ -192,8 +188,7 @@ ENDIF(SDL2PP_WITH_IMAGE)
 IF(SDL2PP_WITH_MIXER)
 	SET(LIBRARY_SOURCES
 		${LIBRARY_SOURCES}
-		SDL2pp/Chunk.cc
-		SDL2pp/Mixer.cc
+            SDL2pp/Mixer.cc
 		SDL2pp/Music.cc
 		SDL2pp/SDLMixer.cc
 	)

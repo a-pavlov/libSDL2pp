@@ -23,6 +23,7 @@
 #define SDL2PP_RECT_HH
 
 #include <functional>
+#include <algorithm>
 
 #include <SDL_rect.h>
 
@@ -424,7 +425,14 @@ public:
 	/// \returns Rect representing union of two rectangles
 	///
 	////////////////////////////////////////////////////////////
-	Rect GetUnion(const Rect& rect) const;
+	Rect GetUnion(const Rect& rect) const {
+		return Rect::FromCorners(
+				std::min(x, rect.x),
+				std::min(y, rect.y),
+				std::max(GetX2(), rect.GetX2()),
+				std::max(GetY2(), rect.GetY2())
+		);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Union rect with another rect
@@ -434,7 +442,17 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	Rect& Union(const Rect& rect);
+	Rect& Union(const Rect& rect) {
+		int nx = std::min(x, rect.x);
+		int ny = std::min(y, rect.y);
+		int nx2 = std::max(GetX2(), rect.GetX2());
+		int ny2 = std::max(GetY2(), rect.GetY2());
+		x = nx;
+		y = ny;
+		SetX2(nx2);
+		SetY2(ny2);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get a rect extended by specified amount of pixels
@@ -444,7 +462,11 @@ public:
 	/// \returns Extended rect
 	///
 	////////////////////////////////////////////////////////////
-	Rect GetExtension(unsigned int amount) const;
+	Rect GetExtension(unsigned int amount) const {
+		Rect r = *this;
+		r.Extend(amount);
+		return r;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get a rect extended by specified amount of pixels
@@ -457,7 +479,11 @@ public:
 	/// \returns Extended rect
 	///
 	////////////////////////////////////////////////////////////
-	Rect GetExtension(unsigned int hamount, unsigned int vamount) const;
+	Rect GetExtension(unsigned int hamount, unsigned int vamount) const {
+		Rect r = *this;
+		r.Extend(hamount, vamount);
+		return r;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Extend a rect by specified amount of pixels
@@ -467,7 +493,9 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	Rect& Extend(unsigned int amount);
+	Rect& Extend(unsigned int amount) {
+		return Extend(amount, amount);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Extend a rect by specified amount of pixels
@@ -480,7 +508,13 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	Rect& Extend(unsigned int hamount, unsigned int vamount);
+	Rect& Extend(unsigned int hamount, unsigned int vamount) {
+		x -= hamount;
+		y -= vamount;
+		w += hamount * 2;
+		h += vamount * 2;
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Calculate intersection with another rect
@@ -490,7 +524,17 @@ public:
 	/// \returns Rect representing intersection area or NullOpt if there was no intersection
 	///
 	////////////////////////////////////////////////////////////
-	Optional<Rect> GetIntersection(const Rect& rect) const;
+	Optional<Rect> GetIntersection(const Rect& rect) const {
+		if (!Intersects(rect))
+			return NullOpt;
+
+		return Rect::FromCorners(
+				std::max(x, rect.x),
+				std::max(y, rect.y),
+				std::min(GetX2(), rect.GetX2()),
+				std::min(GetY2(), rect.GetY2())
+		);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Calculate the intersection of a rectangle and line segment
@@ -511,7 +555,9 @@ public:
 	/// necessary.
 	///
 	////////////////////////////////////////////////////////////
-	bool IntersectLine(int& x1, int& y1, int& x2, int& y2) const;
+	bool IntersectLine(int& x1, int& y1, int& x2, int& y2) const {
+		return SDL_IntersectRectAndLine(this, &x1, &y1, &x2, &y2) == SDL_TRUE;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Calculate the intersection of a rectangle and line segment
@@ -529,7 +575,9 @@ public:
 	/// the new coordinates saved in p1 and/or p2 as necessary.
 	///
 	////////////////////////////////////////////////////////////
-	bool IntersectLine(Point& p1, Point& p2) const;
+	bool IntersectLine(Point& p1, Point& p2) const {
+		return SDL_IntersectRectAndLine(this, &p1.x, &p1.y, &p2.x, &p2.y) == SDL_TRUE;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get rectangle moved by a given offset
@@ -582,6 +630,77 @@ public:
 		y -= offset.y;
 		return *this;
 	}
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Get a point with coordinates modified so it fits
+    ///        into a given rect
+    ///
+    /// \param[in] rect Rectangle to clamp with
+    ///
+    /// \returns Clamped point
+    ///
+    ////////////////////////////////////////////////////////////
+    Point GetClamped(const Point& point) const {
+        Point p(point);
+        Clamp(p);
+        return p;
+    }
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Clamp point coordinates to make it fit into a
+    ///        given rect
+    ///
+    /// \param[in] rect Rectangle to clamp with
+    ///
+    /// \returns Reference to self
+    ///
+    ////////////////////////////////////////////////////////////
+    void Clamp(Point& point) const {
+        const Rect& rect = *this;
+        if (point.x < rect.x)
+            point.x = rect.x;
+        if (point.x > rect.GetX2())
+            point.x = rect.GetX2();
+        if (point.y < rect.y)
+            point.y = rect.y;
+        if (point.y > rect.GetY2())
+            point.y = rect.GetY2();
+    }
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Get a point wrapped within a specified rect
+    ///
+    /// \param[in] rect Rectangle to wrap with
+    ///
+    /// \returns Wrapped point
+    ///
+    ////////////////////////////////////////////////////////////
+    Point GetWrapped(const Point& point) const {
+        Point p(point);
+        Wrap(p);
+        return p;
+    }
+
+    ////////////////////////////////////////////////////////////
+    /// \brief Wrap point coordinates within a spedified rect
+    ///
+    /// \param[in] rect Rectangle to wrap with
+    ///
+    /// \returns Reference to self
+    ///
+    ////////////////////////////////////////////////////////////
+    void Wrap(Point& point) const {
+        const Rect& rect = *this;
+        if (point.x < rect.x)
+            point.x = rect.x + rect.w - 1 - (rect.x - point.x + rect.w - 1) % rect.w;
+        else if (point.x >= rect.x + rect.w)
+            point.x = rect.x + (point.x - rect.x - rect.w) % rect.w;
+
+        if (point.y < rect.y)
+            point.y = rect.y + rect.h - 1 - (rect.y - point.y + rect.h - 1) % rect.h;
+        else if (point.y >= rect.y + rect.h)
+            point.y = rect.y + (point.y - rect.y - rect.h) % rect.h;
+    }
 };
 
 }
@@ -621,7 +740,11 @@ constexpr bool operator!=(const SDL2pp::Rect& a, const SDL2pp::Rect& b) {
 /// \returns True if a < b
 ///
 ////////////////////////////////////////////////////////////
-SDL2PP_EXPORT bool operator<(const SDL2pp::Rect& a, const SDL2pp::Rect& b);
+inline std::ostream& operator<<(std::ostream& stream, const SDL2pp::Rect& rect) {
+    stream << "[x:" << rect.x << ",y:" << rect.y << ",w:" << rect.w << ",h:" << rect.h << "]";
+    return stream;
+}
+
 
 ////////////////////////////////////////////////////////////
 /// \brief Stream output operator overload for SDL2pp::Rect
@@ -632,7 +755,18 @@ SDL2PP_EXPORT bool operator<(const SDL2pp::Rect& a, const SDL2pp::Rect& b);
 /// \returns stream
 ///
 ////////////////////////////////////////////////////////////
-SDL2PP_EXPORT std::ostream& operator<<(std::ostream& stream, const SDL2pp::Rect& rect);
+inline bool operator<(const SDL2pp::Rect& a, const SDL2pp::Rect& b) {
+	if (a.x == b.x) {
+		if (a.y == b.y) {
+			if (a.w == b.w)
+				return a.h < b.h;
+			return a.w < b.w;
+		}
+		return a.y < b.y;
+	}
+	return a.x < b.x;
+}
+
 
 namespace std {
 

@@ -23,10 +23,13 @@
 #define SDL2PP_CHUNK_HH
 
 #include <string>
+#include <cassert>
 
 #include <SDL_mixer.h>
 
 #include <SDL2pp/Export.hh>
+#include <SDL2pp/RWops.hh>
+#include <SDL2pp/Exception.hh>
 
 namespace SDL2pp {
 
@@ -51,7 +54,9 @@ public:
 	/// \param[in] chunk Existing Mix_Chunk to manage
 	///
 	////////////////////////////////////////////////////////////
-	explicit Chunk(Mix_Chunk* chunk);
+	explicit Chunk(Mix_Chunk* chunk) : chunk_(chunk) {
+		assert(chunk);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Load file for use as a sample
@@ -63,7 +68,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC19
 	///
 	////////////////////////////////////////////////////////////
-	explicit Chunk(const std::string& file);
+	explicit Chunk(const std::string& file) {
+		if ((chunk_ = Mix_LoadWAV(file.c_str())) == nullptr)
+			throw Exception("Mix_LoadWAV");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Load sample using RWops
@@ -75,7 +83,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC20
 	///
 	////////////////////////////////////////////////////////////
-	explicit Chunk(RWops& rwops);
+	explicit Chunk(RWops& rwops) {
+		if ((chunk_ = Mix_LoadWAV_RW(rwops.Get(), 0)) == nullptr)
+			throw Exception("Mix_LoadWAV_RW");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Destructor
@@ -90,7 +101,10 @@ public:
 	///       Mixer, even if it still plays the chunk.
 	///
 	////////////////////////////////////////////////////////////
-	~Chunk();
+	~Chunk() {
+		if (chunk_ != nullptr)
+			Mix_FreeChunk(chunk_);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move constructor
@@ -98,7 +112,9 @@ public:
 	/// \param[in] other SDL2pp::Chunk object to move data from
 	///
 	////////////////////////////////////////////////////////////
-	Chunk(Chunk&& other) noexcept;
+	Chunk(Chunk&& other) noexcept : chunk_(other.chunk_) {
+		other.chunk_ = nullptr;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move assignment operator
@@ -108,7 +124,15 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	Chunk& operator=(Chunk&& other) noexcept;
+	Chunk& operator=(Chunk&& other) noexcept {
+		if (&other == this)
+			return *this;
+		if (chunk_ != nullptr)
+			Mix_FreeChunk(chunk_);
+		chunk_ = other.chunk_;
+		other.chunk_ = nullptr;
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor
@@ -132,7 +156,9 @@ public:
 	/// \returns Pointer to managed Mix_Chunk structure
 	///
 	////////////////////////////////////////////////////////////
-	Mix_Chunk* Get() const;
+	Mix_Chunk* Get() const {
+		return chunk_;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set volume of a chunk
@@ -144,7 +170,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC23
 	///
 	////////////////////////////////////////////////////////////
-	int SetVolume(int volume);
+	int SetVolume(int volume)  {
+		return Mix_VolumeChunk(chunk_, volume);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get volume of a chunk
@@ -154,7 +182,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC23
 	///
 	////////////////////////////////////////////////////////////
-	int GetVolume() const;
+	int GetVolume() const  {
+		return Mix_VolumeChunk(chunk_, -1);
+	}
 };
 
 }
