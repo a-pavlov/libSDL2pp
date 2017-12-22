@@ -23,6 +23,7 @@
 #define SDL2PP_WINDOW_HH
 
 #include <string>
+#include <cassert>
 
 #include <SDL_version.h>
 #include <SDL_stdinc.h>
@@ -30,12 +31,11 @@
 
 #include <SDL2pp/Point.hh>
 #include <SDL2pp/Export.hh>
+#include <SDL2pp/Surface.hh>
 
 struct SDL_Window;
 
 namespace SDL2pp {
-
-class Surface;
 
 ////////////////////////////////////////////////////////////
 /// \brief GUI window object
@@ -64,7 +64,7 @@ class Surface;
 /// \endcode
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT Window {
+class Window {
 private:
 	SDL_Window* window_; ///< Managed SDL2_Window object
 
@@ -75,7 +75,9 @@ public:
 	/// \param[in] window Existing SDL_Window to manage
 	///
 	////////////////////////////////////////////////////////////
-	explicit Window(SDL_Window* window);
+	explicit Window(SDL_Window* window) : window_(window) {
+		assert(window);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Create window with specified title and dimensions
@@ -92,7 +94,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_CreateWindow
 	///
 	////////////////////////////////////////////////////////////
-	Window(const std::string& title, int x, int y, int w, int h, Uint32 flags);
+	Window(const std::string& title, int x, int y, int w, int h, Uint32 flags) {
+		if ((window_ = SDL_CreateWindow(title.c_str(), x, y, w, h, flags)) == nullptr)
+			throw Exception("SDL_CreateWindow");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Destructor
@@ -100,7 +105,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_DestroyWindow
 	///
 	////////////////////////////////////////////////////////////
-	virtual ~Window();
+	virtual ~Window() {
+		if (window_ != nullptr)
+			SDL_DestroyWindow(window_);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move constructor
@@ -108,7 +116,9 @@ public:
 	/// \param[in] other SDL2pp::Window object to move data from
 	///
 	////////////////////////////////////////////////////////////
-	Window(Window&& other) noexcept;
+	Window(Window&& other) noexcept : window_(other.window_) {
+		other.window_ = nullptr;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move assignment operator
@@ -118,7 +128,15 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	Window& operator=(Window&& other) noexcept;
+	Window& operator=(Window&& other) noexcept {
+		if (&other == this)
+			return *this;
+		if (window_ != nullptr)
+			SDL_DestroyWindow(window_);
+		window_ = other.window_;
+		other.window_ = nullptr;
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor
@@ -142,7 +160,9 @@ public:
 	/// \returns Pointer to managed SDL_Window structure
 	///
 	////////////////////////////////////////////////////////////
-	SDL_Window* Get() const;
+	SDL_Window* Get() const {
+		return window_;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get dimensions of the window
@@ -153,7 +173,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetWindowSize
 	///
 	////////////////////////////////////////////////////////////
-	Point GetSize() const;
+	Point GetSize() const {
+		int w, h;
+		SDL_GetWindowSize(window_, &w, &h);
+		return Point(w, h);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get width of the window
@@ -163,7 +187,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetWindowSize
 	///
 	////////////////////////////////////////////////////////////
-	int GetWidth() const;
+	int GetWidth() const {
+		int w;
+		SDL_GetWindowSize(window_, &w, nullptr);
+		return w;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get height of the window
@@ -173,7 +201,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetWindowSize
 	///
 	////////////////////////////////////////////////////////////
-	int GetHeight() const;
+	int GetHeight() const {
+		int h;
+		SDL_GetWindowSize(window_, nullptr, &h);
+		return h;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get drawable dimensions of the window
@@ -184,7 +216,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GL_GetDrawableSize
 	///
 	////////////////////////////////////////////////////////////
-	Point GetDrawableSize() const;
+	Point GetDrawableSize() const {
+		int w, h;
+		SDL_GL_GetDrawableSize(window_, &w, &h);
+		return Point(w, h);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get drawable width of the window
@@ -194,7 +230,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GL_GetDrawableSize
 	///
 	////////////////////////////////////////////////////////////
-	int GetDrawableWidth() const;
+	int GetDrawableWidth() const {
+		int w;
+		SDL_GL_GetDrawableSize(window_, &w, nullptr);
+		return w;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get drawable height of the window
@@ -204,7 +244,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GL_GetDrawableSize
 	///
 	////////////////////////////////////////////////////////////
-	int GetDrawableHeight() const;
+	int GetDrawableHeight() const {
+		int h;
+		SDL_GL_GetDrawableSize(window_, nullptr, &h);
+		return h;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set window title
@@ -216,7 +260,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowTitle
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetTitle(const std::string& title);
+	Window& SetTitle(const std::string& title) {
+		SDL_SetWindowTitle(window_, title.c_str());
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get window title
@@ -226,7 +273,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetWindowTitle
 	///
 	////////////////////////////////////////////////////////////
-	std::string GetTitle() const;
+	std::string GetTitle() const {
+		return SDL_GetWindowTitle(window_);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Make a window as large as possible
@@ -236,7 +285,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_MaximizeWindow
 	///
 	////////////////////////////////////////////////////////////
-	Window& Maximize();
+	Window& Maximize() {
+		SDL_MaximizeWindow(window_);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Minimize a window to an iconic representation
@@ -246,7 +298,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_MinimizeWindow
 	///
 	////////////////////////////////////////////////////////////
-	Window& Minimize();
+	Window& Minimize() {
+		SDL_MinimizeWindow(window_);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Hide a window
@@ -256,7 +311,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_HideWindow
 	///
 	////////////////////////////////////////////////////////////
-	Window& Hide();
+	Window& Hide() {
+		SDL_HideWindow(window_);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Restore the size and position of a minimized or maximized window
@@ -266,7 +324,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_RestoreWindow
 	///
 	////////////////////////////////////////////////////////////
-	Window& Restore();
+	Window& Restore() {
+		SDL_RestoreWindow(window_);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Raise a window above other windows and set the input focus
@@ -276,7 +337,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_RaiseWindow
 	///
 	////////////////////////////////////////////////////////////
-	Window& Raise();
+	Window& Raise() {
+		SDL_RaiseWindow(window_);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Show a window
@@ -286,7 +350,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_ShowWindow
 	///
 	////////////////////////////////////////////////////////////
-	Window& Show();
+	Window& Show() {
+		SDL_ShowWindow(window_);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set a window's fullscreen state
@@ -300,7 +367,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowFullscreen
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetFullscreen(Uint32 flags);
+	Window& SetFullscreen(Uint32 flags) {
+		if (SDL_SetWindowFullscreen(window_, flags) != 0)
+			throw Exception("SDL_SetWindowFullscreen");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the size of a window's client area
@@ -313,7 +384,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowSize
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetSize(int w, int h);
+	Window& SetSize(int w, int h) {
+		SDL_SetWindowSize(window_, w, h);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the size of a window's client area
@@ -325,7 +399,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowSize
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetSize(const Point& size);
+	Window& SetSize(const Point& size) {
+		SDL_SetWindowSize(window_, size.x, size.y);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the brightness (gamma multiplier) for the display that owns a given window
@@ -335,7 +412,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetWindowBrightness
 	///
 	////////////////////////////////////////////////////////////
-	float GetBrightness() const;
+	float GetBrightness() const {
+		return SDL_GetWindowBrightness(window_);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the brightness (gamma multiplier) for the display that owns a given window
@@ -349,7 +428,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowBrightness
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetBrightness(float brightness);
+	Window& SetBrightness(float brightness) {
+		if (SDL_SetWindowBrightness(window_, brightness) != 0)
+			throw Exception("SDL_SetWindowBrightness");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the position of a window
@@ -359,7 +442,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetWindowPosition
 	///
 	////////////////////////////////////////////////////////////
-	Point GetPosition() const;
+	Point GetPosition() const {
+		int x, y;
+		SDL_GetWindowPosition(window_, &x, &y);
+		return Point(x, y);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the position of a window
@@ -372,7 +459,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowPosition
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetPosition(int x, int y);
+	Window& SetPosition(int x, int y) {
+		SDL_SetWindowPosition(window_, x, y);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the position of a window
@@ -384,7 +474,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowPosition
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetPosition(const Point& pos);
+	Window& SetPosition(const Point& pos) {
+		SDL_SetWindowPosition(window_, pos.x, pos.y);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the minimum size of a window's client area
@@ -394,7 +487,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetWindowMinimumSize
 	///
 	////////////////////////////////////////////////////////////
-	Point GetMinimumSize() const;
+	Point GetMinimumSize() const {
+		int w, h;
+		SDL_GetWindowMinimumSize(window_, &w, &h);
+		return Point(w, h);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the minimum size of a window's client area
@@ -407,7 +504,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowMinimumSize
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetMinimumSize(int w, int h);
+	Window& SetMinimumSize(int w, int h) {
+		SDL_SetWindowMinimumSize(window_, w, h);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the minimum size of a window's client area
@@ -419,7 +519,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowMinimumSize
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetMinimumSize(const Point& size);
+	Window& SetMinimumSize(const Point& size) {
+		SDL_SetWindowMinimumSize(window_, size.x, size.y);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the maximum size of a window's client area
@@ -429,7 +532,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetWindowMaximumSize
 	///
 	////////////////////////////////////////////////////////////
-	Point GetMaximumSize() const;
+	Point GetMaximumSize() const {
+		int w, h;
+		SDL_GetWindowMaximumSize(window_, &w, &h);
+		return Point(w, h);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the maximum size of a window's client area
@@ -442,7 +549,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowMaximumSize
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetMaximumSize(int w, int h);
+	Window& SetMaximumSize(int w, int h) {
+		SDL_SetWindowMaximumSize(window_, w, h);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the maximum size of a window's client area
@@ -454,7 +564,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowMaximumSize
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetMaximumSize(const Point& size);
+	Window& SetMaximumSize(const Point& size) {
+		SDL_SetWindowMaximumSize(window_, size.x, size.y);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get a window's input grab mode
@@ -464,7 +577,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetWindowGrab
 	///
 	////////////////////////////////////////////////////////////
-	bool GetGrab() const;
+	bool GetGrab() const {
+		return SDL_GetWindowGrab(window_) == SDL_TRUE;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set a window's input grab mode
@@ -476,7 +591,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowGrab
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetGrab(bool grabbed);
+	Window& SetGrab(bool grabbed) {
+		SDL_SetWindowGrab(window_, grabbed ? SDL_TRUE : SDL_FALSE);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the index of the display associated with a window
@@ -488,7 +606,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetWindowDisplayIndex
 	///
 	////////////////////////////////////////////////////////////
-	int GetDisplayIndex() const;
+	int GetDisplayIndex() const {
+		int index = SDL_GetWindowDisplayIndex(window_);
+		if (index < 0)
+			throw SDL2pp::Exception("SDL_GetWindowDisplayIndex");
+		return index;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get information about the display mode to use when a
@@ -502,7 +625,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetWindowDisplayMode
 	///
 	////////////////////////////////////////////////////////////
-	void GetDisplayMode(SDL_DisplayMode& mode) const;
+	void GetDisplayMode(SDL_DisplayMode& mode) const {
+		if (SDL_GetWindowDisplayMode(window_, &mode) != 0)
+			throw SDL2pp::Exception("SDL_GetWindowDisplayMode");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the window flags
@@ -512,7 +638,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetWindowFlags
 	///
 	////////////////////////////////////////////////////////////
-	Uint32 GetFlags() const;
+	Uint32 GetFlags() const {
+		return SDL_GetWindowFlags(window_);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the icon for a window
@@ -526,7 +654,10 @@ public:
 	/// Icon surface may be destroyed after calling this function
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetIcon(const Surface& icon);
+	Window& SetIcon(const Surface& icon) {
+		SDL_SetWindowIcon(window_, icon.Get());
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the border state of a window
@@ -538,7 +669,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowBordered
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetBordered(bool bordered = true);
+	Window& SetBordered(bool bordered = true) {
+		SDL_SetWindowBordered(window_, bordered ? SDL_TRUE : SDL_FALSE);
+		return *this;
+	}
 
 #if SDL_VERSION_ATLEAST(2, 0, 5)
 	////////////////////////////////////////////////////////////
@@ -553,7 +687,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowOpacity
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetOpacity(float opacity = 1.0f);
+	Window& SetOpacity(float opacity = 1.0f) {
+		if (SDL_SetWindowOpacity(window_, opacity))
+			throw SDL2pp::Exception("SDL_SetWindowOpacity");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the opacity of a window
@@ -565,7 +703,14 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetWindowOpacity
 	///
 	////////////////////////////////////////////////////////////
-	float GetOpacity() const;
+	float GetOpacity() const {
+		float opacity;
+		if (SDL_GetWindowOpacity(window_, &opacity) == -1)
+			throw SDL2pp::Exception("SDL_GetWindowOpacity");
+
+		return opacity;
+	}
+
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set user-resizable state of a window
@@ -577,7 +722,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetWindowResizable
 	///
 	////////////////////////////////////////////////////////////
-	Window& SetResizable(bool resizable = true);
+	Window& SetResizable(bool resizable = true) {
+		SDL_SetWindowResizable(window_, resizable ? SDL_TRUE : SDL_FALSE);
+		return *this;
+	}
 #endif
 };
 

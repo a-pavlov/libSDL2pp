@@ -22,8 +22,12 @@
 #ifndef SDL2PP_SURFACE_HH
 #define SDL2PP_SURFACE_HH
 
+#include <vector>
+#include <cassert>
+
 #include <SDL_stdinc.h>
 #include <SDL_blendmode.h>
+#include <SDL_surface.h>
 
 #include <SDL2pp/Config.hh>
 #include <SDL2pp/Optional.hh>
@@ -31,13 +35,26 @@
 #include <SDL2pp/Point.hh>
 #include <SDL2pp/Export.hh>
 #include <SDL2pp/Color.hh>
+#include <SDL2pp/RWops.hh>
+#include <SDL2pp/Exception.hh>
+
+
+
+#include <SDL_surface.h>
+#ifdef SDL2PP_WITH_IMAGE
+#	include <SDL_image.h>
+#endif
+
+#include <SDL2pp/Surface.hh>
+#include <SDL2pp/Exception.hh>
+#ifdef SDL2PP_WITH_IMAGE
+#	include <SDL2pp/RWops.hh>
+#endif
 
 struct SDL_Surface;
 struct SDL_PixelFormat;
 
 namespace SDL2pp {
-
-class RWops;
 
 ////////////////////////////////////////////////////////////
 /// \brief Image stored in system memory with direct access
@@ -81,7 +98,12 @@ public:
 		/// \see http://wiki.libsdl.org/SDL_LockSurface
 		///
 		////////////////////////////////////////////////////////////
-		explicit LockHandle(Surface* surface);
+		explicit LockHandle(Surface* surface) : surface_(surface) {
+            if (SDL_MUSTLOCK(surface_->Get())) {
+                if (SDL_LockSurface(surface_->Get()))
+                    throw Exception("SDL_LockSurface");
+            }
+        }
 
 	public:
 		////////////////////////////////////////////////////////////
@@ -91,9 +113,10 @@ public:
 		/// assignment
 		///
 		////////////////////////////////////////////////////////////
-		LockHandle();
+		LockHandle() : surface_(nullptr) {
+        }
 
-		////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 		/// \brief Destructor
 		///
 		/// Releases the lock
@@ -101,7 +124,12 @@ public:
 		/// \see http://wiki.libsdl.org/SDL_UnlockSurface
 		///
 		////////////////////////////////////////////////////////////
-		~LockHandle();
+		~LockHandle() {
+            if (surface_ != nullptr) {
+                if (SDL_MUSTLOCK(surface_->Get()))
+                    SDL_UnlockSurface(surface_->Get());
+            }
+        }
 
 		////////////////////////////////////////////////////////////
 		/// \brief Move constructor
@@ -109,7 +137,9 @@ public:
 		/// \param[in] other SDL2pp::Surface::LockHandle to move data from
 		///
 		////////////////////////////////////////////////////////////
-		LockHandle(LockHandle&& other) noexcept;
+		LockHandle(LockHandle&& other) noexcept : surface_(other.surface_) {
+            other.surface_ = nullptr;
+        }
 
 		////////////////////////////////////////////////////////////
 		/// \brief Move assignment operator
@@ -119,7 +149,21 @@ public:
 		/// \returns Reference to self
 		///
 		////////////////////////////////////////////////////////////
-		LockHandle& operator=(LockHandle&& other) noexcept;
+		LockHandle& operator=(LockHandle&& other) noexcept {
+            if (&other == this)
+                return *this;
+
+            if (surface_ != nullptr) {
+                if (SDL_MUSTLOCK(surface_->Get()))
+                    SDL_UnlockSurface(surface_->Get());
+            }
+
+            surface_ = other.surface_;
+
+            other.surface_ = nullptr;
+
+            return *this;
+        }
 
 		////////////////////////////////////////////////////////////
 		/// \brief Deleted copy constructor
@@ -143,7 +187,9 @@ public:
 		/// \returns Pointer to raw pixel data of locked region
 		///
 		////////////////////////////////////////////////////////////
-		void* GetPixels() const;
+		void* GetPixels() const {
+            return surface_->Get()->pixels;
+        }
 
 		////////////////////////////////////////////////////////////
 		/// \brief Get pitch of locked pixel data
@@ -152,7 +198,9 @@ public:
 		///          padding between lines
 		///
 		////////////////////////////////////////////////////////////
-		int GetPitch() const;
+		int GetPitch() const {
+            return surface_->Get()->pitch;
+        }
 
 		////////////////////////////////////////////////////////////
 		/// \brief Get pixel format of the surface
@@ -160,7 +208,9 @@ public:
 		/// \returns Format of the pixels stored in the surface
 		///
 		////////////////////////////////////////////////////////////
-		const SDL_PixelFormat& GetFormat() const;
+		const SDL_PixelFormat& GetFormat() const {
+            return *surface_->Get()->format;
+        }
 	};
 
 public:
@@ -170,7 +220,9 @@ public:
 	/// \param[in] surface Existing SDL_Surface to manage
 	///
 	////////////////////////////////////////////////////////////
-	explicit Surface(SDL_Surface* surface);
+	explicit Surface(SDL_Surface* surface) : surface_(surface) {
+		assert(surface);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Create RGB surface
@@ -189,7 +241,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_CreateRGBSurface
 	///
 	////////////////////////////////////////////////////////////
-	Surface(Uint32 flags, int width, int height, int depth, Uint32 Rmask, Uint32 Gmask, Uint32 Bmask, Uint32 Amask);
+	Surface(Uint32 flags, int width, int height, int depth, Uint32 Rmask, Uint32 Gmask, Uint32 Bmask, Uint32 Amask) {
+		if ((surface_ = SDL_CreateRGBSurface(flags, width, height, depth, Rmask, Gmask, Bmask, Amask)) == nullptr)
+			throw Exception("SDL_CreateRGBSurface");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Create RGB surface with existing pixel data
@@ -209,7 +264,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_CreateRGBSurfaceFrom
 	///
 	////////////////////////////////////////////////////////////
-	Surface(void* pixels, int width, int height, int depth, int pitch, Uint32 Rmask, Uint32 Gmask, Uint32 Bmask, Uint32 Amask);
+	Surface(void* pixels, int width, int height, int depth, int pitch, Uint32 Rmask, Uint32 Gmask, Uint32 Bmask, Uint32 Amask) {
+		if ((surface_ = SDL_CreateRGBSurfaceFrom(pixels, width, height, depth, pitch, Rmask, Gmask, Bmask, Amask)) == nullptr)
+			throw Exception("SDL_CreateRGBSurfaceFrom");
+	}
 
 #ifdef SDL2PP_WITH_IMAGE
 	////////////////////////////////////////////////////////////
@@ -220,7 +278,10 @@ public:
 	/// \throws SDL2pp::Exception
 	///
 	////////////////////////////////////////////////////////////
-	explicit Surface(RWops& rwops);
+	explicit Surface(RWops& rwops) {
+		if ((surface_ = IMG_Load_RW(rwops.Get(), 0)) == nullptr)
+			throw Exception("IMG_Load_RW");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Create surface loading it from file
@@ -230,7 +291,10 @@ public:
 	/// \throws SDL2pp::Exception
 	///
 	////////////////////////////////////////////////////////////
-	explicit Surface(const std::string& filename);
+	explicit Surface(const std::string& filename) {
+		if ((surface_ = IMG_Load(filename.c_str())) == nullptr)
+			throw Exception("IMG_Load");
+	}
 #endif
 
 	////////////////////////////////////////////////////////////
@@ -239,7 +303,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_FreeSurface
 	///
 	////////////////////////////////////////////////////////////
-	virtual ~Surface();
+	virtual ~Surface() {
+		if (surface_ != nullptr)
+			SDL_FreeSurface(surface_);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move constructor
@@ -247,7 +314,9 @@ public:
 	/// \param[in] other SDL2pp::Surface object to move data from
 	///
 	////////////////////////////////////////////////////////////
-	Surface(Surface&& other) noexcept;
+	Surface(Surface&& other) noexcept : surface_(other.surface_) {
+		other.surface_ = nullptr;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move assignment
@@ -257,7 +326,15 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	Surface& operator=(Surface&& other) noexcept;
+	Surface& operator=(Surface&& other) noexcept {
+		if (&other == this)
+			return *this;
+		if (surface_ != nullptr)
+			SDL_FreeSurface(surface_);
+		surface_ = other.surface_;
+		other.surface_ = nullptr;
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor
@@ -281,7 +358,9 @@ public:
 	/// \returns Pointer to managed SDL_Surface structure
 	///
 	////////////////////////////////////////////////////////////
-	SDL_Surface* Get() const;
+	SDL_Surface* Get() const {
+		return surface_;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Copy an existing surface into a new one that is
@@ -294,7 +373,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_ConvertSurface
 	///
 	////////////////////////////////////////////////////////////
-	Surface Convert(const SDL_PixelFormat& format);
+	Surface Convert(const SDL_PixelFormat& format) {
+		SDL_Surface* surface = SDL_ConvertSurface(surface_, &format, 0);
+		if (surface == nullptr)
+			throw Exception("SDL_ConvertSurface");
+		return SDL2pp::Surface(surface);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Copy an existing surface to a new surface of the specified format
@@ -307,7 +391,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_ConvertSurfaceFormat
 	///
 	////////////////////////////////////////////////////////////
-	Surface Convert(Uint32 pixel_format);
+	Surface Convert(Uint32 pixel_format) {
+		SDL_Surface* surface = SDL_ConvertSurfaceFormat(surface_, pixel_format, 0);
+		if (surface == nullptr)
+			throw Exception("SDL_ConvertSurfaceFormat");
+		return SDL2pp::Surface(surface);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Fast surface copy to a destination surface
@@ -321,7 +410,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_BlitSurface
 	///
 	////////////////////////////////////////////////////////////
-	void Blit(const Optional<Rect>& srcrect, Surface& dst, const Rect& dstrect);
+	void Blit(const Optional<Rect>& srcrect, Surface& dst, const Rect& dstrect) {
+		SDL_Rect tmpdstrect = dstrect; // 4th argument is non-const; does it modify rect?
+		if (SDL_BlitSurface(surface_, srcrect ? &*srcrect : nullptr, dst.Get(), &tmpdstrect) != 0)
+			throw Exception("SDL_BlitSurface");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Scaled surface copy to a destination surface
@@ -335,7 +428,13 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_BlitScaled
 	///
 	////////////////////////////////////////////////////////////
-	void BlitScaled(const Optional<Rect>& srcrect, Surface& dst, const Optional<Rect>& dstrect);
+	void BlitScaled(const Optional<Rect>& srcrect, Surface& dst, const Optional<Rect>& dstrect) {
+		SDL_Rect tmpdstrect; // 4th argument is non-const; does it modify rect?
+		if (dstrect)
+			tmpdstrect = *dstrect;
+		if (SDL_BlitScaled(surface_, srcrect ? &*srcrect : nullptr, dst.Get(), dstrect ? &tmpdstrect : nullptr) != 0)
+			throw Exception("SDL_BlitScaled");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Lock surface for direct pixel access
@@ -347,7 +446,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_LockSurface
 	///
 	////////////////////////////////////////////////////////////
-	LockHandle Lock();
+	LockHandle Lock() {
+		return LockHandle(this);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the clipping rectangle for a surface
@@ -357,7 +458,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetClipRect
 	///
 	////////////////////////////////////////////////////////////
-	Rect GetClipRect() const;
+	Rect GetClipRect() const {
+		SDL_Rect rect;
+		SDL_GetClipRect(surface_, &rect);
+		return Rect(rect);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the color key (transparent pixel) for a surface
@@ -369,7 +474,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetColorKey
 	///
 	////////////////////////////////////////////////////////////
-	Uint32 GetColorKey() const;
+	Uint32 GetColorKey() const {
+		Uint32 key;
+		if (SDL_GetColorKey(surface_, &key) != 0)
+			throw Exception("SDL_GetColorKey");
+		return key;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the additional alpha value used in blit operations
@@ -381,7 +491,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetSurfaceAlphaMod
 	///
 	////////////////////////////////////////////////////////////
-	Uint8 GetAlphaMod() const;
+	Uint8 GetAlphaMod() const {
+		Uint8 alpha;
+		if (SDL_GetSurfaceAlphaMod(surface_, &alpha) != 0)
+			throw Exception("SDL_GetSurfaceAlphaMod");
+		return alpha;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get blend mode used for blit operations
@@ -393,7 +508,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetSurfaceBlendMode
 	///
 	////////////////////////////////////////////////////////////
-	SDL_BlendMode GetBlendMode() const;
+	SDL_BlendMode GetBlendMode() const {
+		SDL_BlendMode blendMode;
+		if (SDL_GetSurfaceBlendMode(surface_, &blendMode) != 0)
+			throw Exception("SDL_GetSurfaceBlendMode");
+		return blendMode;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the additional color value multiplied into blit operations
@@ -406,7 +526,12 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetSurfaceColorMod
 	///
 	////////////////////////////////////////////////////////////
-	Color GetColorAndAlphaMod() const;
+	Color GetColorAndAlphaMod() const {
+		Color color;
+		GetColorMod(color.r, color.g, color.b);
+		color.a = GetAlphaMod();
+		return color;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the additional color value multiplied into blit operations
@@ -420,7 +545,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetSurfaceColorMod
 	///
 	////////////////////////////////////////////////////////////
-	void GetColorMod(Uint8& r, Uint8& g, Uint8& b) const;
+	void GetColorMod(Uint8& r, Uint8& g, Uint8& b) const {
+		if (SDL_GetSurfaceColorMod(surface_, &r, &g, &b) != 0)
+			throw Exception("SDL_GetSurfaceColorMod");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the clipping rectangle for a surface
@@ -434,7 +562,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetClipRect
 	///
 	////////////////////////////////////////////////////////////
-	Surface& SetClipRect(const Optional<Rect>& rect = NullOpt);
+	Surface& SetClipRect(const Optional<Rect>& rect = NullOpt) {
+		if (SDL_SetClipRect(surface_, rect ? &*rect : nullptr) != SDL_TRUE)
+			throw Exception("SDL_SetClipRect");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the color key (transparent pixel) in a surface
@@ -449,7 +581,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetColorKey
 	///
 	////////////////////////////////////////////////////////////
-	Surface& SetColorKey(bool flag, Uint32 key);
+	Surface& SetColorKey(bool flag, Uint32 key) {
+		if (SDL_SetColorKey(surface_, flag, key) != 0)
+			throw Exception("SDL_SetColorKey");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set an additional alpha value used in blit operations
@@ -463,7 +599,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetSurfaceAlphaMod
 	///
 	////////////////////////////////////////////////////////////
-	Surface& SetAlphaMod(Uint8 alpha = 255);
+	Surface& SetAlphaMod(Uint8 alpha = 255) {
+		if (SDL_SetSurfaceAlphaMod(surface_, alpha) != 0)
+			throw Exception("SDL_SetSurfaceAlphaMod");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the blend mode used for blit operations
@@ -477,7 +617,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetSurfaceBlendMode
 	///
 	////////////////////////////////////////////////////////////
-	Surface& SetBlendMode(SDL_BlendMode blendMode);
+	Surface& SetBlendMode(SDL_BlendMode blendMode) {
+		if (SDL_SetSurfaceBlendMode(surface_, blendMode) != 0)
+			throw Exception("SDL_SetSurfaceBlendMode");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set an additional color value multiplied into blit operations
@@ -493,7 +637,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetSurfaceColorMod
 	///
 	////////////////////////////////////////////////////////////
-	Surface& SetColorMod(Uint8 r = 255, Uint8 g = 255, Uint8 b = 255);
+	Surface& SetColorMod(Uint8 r = 255, Uint8 g = 255, Uint8 b = 255) {
+		if (SDL_SetSurfaceColorMod(surface_, r, g, b) != 0)
+			throw Exception("SDL_SetSurfaceColorMod");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set an additional color value multiplied into blit operations
@@ -508,7 +656,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetSurfaceColorMod
 	///
 	////////////////////////////////////////////////////////////
-	Surface& SetColorAndAlphaMod(const Color& color);
+	Surface& SetColorAndAlphaMod(const Color& color) {
+		return SetColorMod(color.r, color.g, color.b).SetAlphaMod(color.a);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the RLE acceleration hint for a surface
@@ -522,7 +672,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_SetSurfaceRLE
 	///
 	////////////////////////////////////////////////////////////
-	Surface& SetRLE(bool flag);
+	Surface& SetRLE(bool flag) {
+		if (SDL_SetSurfaceRLE(surface_, flag ? 1 : 0) != 0)
+			throw Exception("SDL_SetSurfaceRLE");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Perform a fast fill of a rectangle with a specific color
@@ -535,7 +689,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_FillRect
 	///
 	////////////////////////////////////////////////////////////
-	Surface& FillRect(const Optional<Rect>& rect, Uint32 color);
+	Surface& FillRect(const Optional<Rect>& rect, Uint32 color) {
+		if (SDL_FillRect(surface_, rect ? &*rect : nullptr, color) != 0)
+			throw Exception("SDL_FillRect");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Perform a fast fill of a set of rectangles with a specific color
@@ -549,7 +707,16 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_FillRects
 	///
 	////////////////////////////////////////////////////////////
-	Surface& FillRects(const Rect* rects, int count, Uint32 color);
+	Surface& FillRects(const Rect* rects, int count, Uint32 color) {
+		std::vector<SDL_Rect> sdl_rects;
+		sdl_rects.reserve(static_cast<size_t>(count));
+		for (const Rect* r = rects; r != rects + count; ++r)
+			sdl_rects.emplace_back(*r);
+
+		if (SDL_FillRects(surface_, sdl_rects.data(), count, color) != 0)
+			throw Exception("SDL_FillRects");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get surface width
@@ -557,7 +724,9 @@ public:
 	/// \return Surface width in pixels
 	///
 	////////////////////////////////////////////////////////////
-	int GetWidth() const;
+	int GetWidth() const {
+		return surface_->w;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get surface height
@@ -565,7 +734,9 @@ public:
 	/// \return Surface height in pixels
 	///
 	////////////////////////////////////////////////////////////
-	int GetHeight() const;
+	int GetHeight() const {
+		return surface_->h;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get surface size
@@ -573,7 +744,9 @@ public:
 	/// \return SDL2pp::Point representing surface dimensions in pixels
 	///
 	////////////////////////////////////////////////////////////
-	Point GetSize() const;
+	Point GetSize() const {
+		return Point(surface_->w, surface_->h);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get texture format
@@ -584,7 +757,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_PixelFormatEnum
 	///
 	////////////////////////////////////////////////////////////
-	Uint32 GetFormat() const;
+	Uint32 GetFormat() const {
+		return surface_->format->format;
+	}
 };
 
 }

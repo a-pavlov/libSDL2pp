@@ -127,11 +127,8 @@ SET(LIBRARY_SOURCES
 	SDL2pp/AudioSpec.cc
         SDL2pp/RWops.cc
         SDL2pp/SDL.cc
-	SDL2pp/Surface.cc
-	SDL2pp/SurfaceLock.cc
 		SDL2pp/Wav.cc
-	SDL2pp/Window.cc
-)
+        )
 
 SET(LIBRARY_HEADERS
 	SDL2pp/AudioDevice.hh
