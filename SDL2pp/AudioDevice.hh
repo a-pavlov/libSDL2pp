@@ -167,7 +167,7 @@ public:
 		/// \param[in] other SDL2pp::AudioDevice::LockHandle to copy data from
 		///
 		////////////////////////////////////////////////////////////
-		LockHandle(const LockHandle& other) {
+		LockHandle(const LockHandle& other) : device_(other.device_) {
             SDL_LockAudioDevice(device_->device_id_);
         }
 
