@@ -23,14 +23,16 @@
 #define SDL2PP_MUSIC_HH
 
 #include <string>
+#include <cassert>
 
 #include <SDL_mixer.h>
 
 #include <SDL2pp/Export.hh>
+#include <SDL2pp/Exception.hh>
+#include <SDL2pp/Music.hh>
+#include <SDL2pp/RWops.hh>
 
 namespace SDL2pp {
-
-class RWops;
 
 ////////////////////////////////////////////////////////////
 /// \brief %Music data
@@ -51,7 +53,9 @@ public:
 	/// \param[in] music Existing Mix_Music to manage
 	///
 	////////////////////////////////////////////////////////////
-	explicit Music(Mix_Music* music);
+	explicit Music(Mix_Music* music) : music_(music) {
+		assert(music);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Load music file
@@ -63,7 +67,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC55
 	///
 	////////////////////////////////////////////////////////////
-	explicit Music(const std::string& file);
+	explicit Music(const std::string& file) {
+		if ((music_ = Mix_LoadMUS(file.c_str())) == nullptr)
+			throw Exception("Mix_LoadMUS");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Load music using RWops
@@ -77,7 +84,10 @@ public:
 	/// \throws SDL2pp::Exception
 	///
 	////////////////////////////////////////////////////////////
-	explicit Music(RWops& rwops);
+	explicit Music(RWops& rwops) {
+		if ((music_ = Mix_LoadMUS_RW(rwops.Get(), 0)) == nullptr)
+			throw Exception("Mix_LoadMUS_RW");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Load music using RWops
@@ -90,7 +100,10 @@ public:
 	/// \throws SDL2pp::Exception
 	///
 	////////////////////////////////////////////////////////////
-	Music(RWops& rwops, Mix_MusicType type);
+	Music(RWops& rwops, Mix_MusicType type) {
+		if ((music_ = Mix_LoadMUSType_RW(rwops.Get(), type, 0)) == nullptr)
+			throw Exception("Mix_LoadMUSType_RW");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Destructor
@@ -98,7 +111,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC56
 	///
 	////////////////////////////////////////////////////////////
-	~Music();
+	~Music() {
+		if (music_ != nullptr)
+			Mix_FreeMusic(music_);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move constructor
@@ -106,7 +122,9 @@ public:
 	/// \param[in] other SDL2pp::Music object to move data from
 	///
 	////////////////////////////////////////////////////////////
-	Music(Music&& other) noexcept;
+	Music(Music&& other) noexcept : music_(other.music_) {
+		other.music_ = nullptr;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move assignment operator
@@ -116,7 +134,15 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	Music& operator=(Music&& other) noexcept;
+	Music& operator=(Music&& other) noexcept {
+		if (&other == this)
+			return *this;
+		if (music_ != nullptr)
+			Mix_FreeMusic(music_);
+		music_ = other.music_;
+		other.music_ = nullptr;
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor
@@ -140,7 +166,9 @@ public:
 	/// \returns Pointer to managed Mix_Music
 	///
 	////////////////////////////////////////////////////////////
-	Mix_Music* Get() const;
+	Mix_Music* Get() const {
+		return music_;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the music encoding type
@@ -148,7 +176,9 @@ public:
 	/// \returns The type of music
 	///
 	////////////////////////////////////////////////////////////
-	Mix_MusicType GetType() const;
+	Mix_MusicType GetType() const {
+		return Mix_GetMusicType(music_);
+	}
 };
 
 }

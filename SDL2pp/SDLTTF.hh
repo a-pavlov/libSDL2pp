@@ -22,6 +22,8 @@
 #ifndef SDL2PP_SDLTTF_HH
 #define SDL2PP_SDLTTF_HH
 
+#include <SDL_ttf.h>
+#include <SDL2pp/Exception.hh>
 #include <SDL2pp/Export.hh>
 
 namespace SDL2pp {
@@ -63,7 +65,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC8
 	///
 	////////////////////////////////////////////////////////////
-	SDLTTF();
+	SDLTTF() {
+		if (TTF_Init() != 0)
+			throw Exception("TTF_Init");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Destructor, deinitializes SDL_ttf library
@@ -71,7 +76,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC10
 	///
 	////////////////////////////////////////////////////////////
-	virtual ~SDLTTF();
+	virtual ~SDLTTF() {
+		TTF_Quit();
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor

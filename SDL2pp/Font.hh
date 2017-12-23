@@ -23,6 +23,8 @@
 #define SDL2PP_FONT_HH
 
 #include <string>
+#include <cassert>
+#include <vector>
 
 #include <SDL_ttf.h>
 
@@ -30,10 +32,11 @@
 #include <SDL2pp/Point.hh>
 #include <SDL2pp/Surface.hh>
 #include <SDL2pp/Export.hh>
+#include <SDL2pp/RWops.hh>
+#include <SDL2pp/Exception.hh>
 
 namespace SDL2pp {
 
-class RWops;
 
 ////////////////////////////////////////////////////////////
 /// \brief Holder of a loaded font
@@ -45,7 +48,7 @@ class RWops;
 /// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC56
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT Font {
+class Font {
 private:
 	TTF_Font* font_; ///< Managed TTF_Font object
 
@@ -60,7 +63,9 @@ public:
 	/// \param[in] font Existing TTF_Font to manage
 	///
 	////////////////////////////////////////////////////////////
-	explicit Font(TTF_Font* font);
+	explicit Font(TTF_Font* font) : font_(font) {
+        assert(font);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Loads font from .ttf or .fon file
@@ -75,7 +80,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC16
 	///
 	////////////////////////////////////////////////////////////
-	Font(const std::string& file, int ptsize, long index = 0);
+	Font(const std::string& file, int ptsize, long index = 0) {
+        if ((font_ = TTF_OpenFontIndex(file.c_str(), ptsize, index)) == nullptr)
+            throw Exception("TTF_OpenFontIndex");
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Loads font with RWops
@@ -90,7 +98,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC17
 	///
 	////////////////////////////////////////////////////////////
-	Font(RWops& rwops, int ptsize, long index = 0);
+	Font(RWops& rwops, int ptsize, long index = 0) {
+        if ((font_ = TTF_OpenFontIndexRW(rwops.Get(), 0, ptsize, index)) == nullptr)
+            throw Exception("TTF_OpenFontIndexRW");
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Destructor
@@ -98,7 +109,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC18
 	///
 	////////////////////////////////////////////////////////////
-	virtual ~Font();
+	virtual ~Font() {
+        if (font_ != nullptr)
+            TTF_CloseFont(font_);
+    }
 
 	///@}
 
@@ -111,7 +125,9 @@ public:
 	/// \param[in] other SDL2pp::Font object to move data from
 	///
 	////////////////////////////////////////////////////////////
-	Font(Font&& other) noexcept;
+	Font(Font&& other) noexcept : font_(other.font_) {
+        other.font_ = nullptr;
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move assignment
@@ -121,7 +137,15 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	Font& operator=(Font&& other) noexcept;
+	Font& operator=(Font&& other) noexcept {
+        if (&other == this)
+            return *this;
+        if (font_ != nullptr)
+            TTF_CloseFont(font_);
+        font_ = other.font_;
+        other.font_ = nullptr;
+        return *this;
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor
@@ -150,7 +174,9 @@ public:
 	/// \returns Pointer to managed TTF_Font structure
 	///
 	////////////////////////////////////////////////////////////
-	TTF_Font* Get() const;
+	TTF_Font* Get() const {
+        return font_;
+    }
 
 	///@{
 	/// \name Attributes: font style
@@ -166,7 +192,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC21
 	///
 	////////////////////////////////////////////////////////////
-	int GetStyle() const;
+	int GetStyle() const {
+        return TTF_GetFontStyle(font_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the rendering style of the loaded font
@@ -200,7 +228,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC22
 	///
 	////////////////////////////////////////////////////////////
-	Font& SetStyle(int style = TTF_STYLE_NORMAL);
+	Font& SetStyle(int style = TTF_STYLE_NORMAL) {
+        TTF_SetFontStyle(font_, style);
+        return *this;
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the current outline size of the loaded font
@@ -210,7 +241,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC23
 	///
 	////////////////////////////////////////////////////////////
-	int GetOutline() const;
+	int GetOutline() const {
+        return TTF_GetFontOutline(font_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the outline pixel width of the loaded font
@@ -227,7 +260,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC24
 	///
 	////////////////////////////////////////////////////////////
-	Font& SetOutline(int outline = 0);
+	Font& SetOutline(int outline = 0) {
+        TTF_SetFontOutline(font_, outline);
+        return *this;
+    }
 
 	///@}
 
@@ -244,9 +280,11 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC25
 	///
 	////////////////////////////////////////////////////////////
-	int GetHinting() const;
+	int GetHinting() const {
+        return TTF_GetFontHinting(font_);
+    }
 
-	////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////
 	/// \brief Set the hinting of the loaded font
 	///
 	/// \param[in] hinting The hinting setting desired, which is one of:
@@ -267,7 +305,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC26
 	///
 	////////////////////////////////////////////////////////////
-	Font& SetHinting(int hinting = TTF_HINTING_NORMAL);
+	Font& SetHinting(int hinting = TTF_HINTING_NORMAL) {
+        TTF_SetFontHinting(font_, hinting);
+        return *this;
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the current kerning setting of the loaded font
@@ -278,7 +319,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC27
 	///
 	////////////////////////////////////////////////////////////
-	bool GetKerning() const;
+	bool GetKerning() const {
+        return TTF_GetFontKerning(font_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set whether to use kerning when rendering the loaded font
@@ -298,7 +341,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC28
 	///
 	////////////////////////////////////////////////////////////
-	Font& SetKerning(bool allowed = true);
+	Font& SetKerning(bool allowed = true) {
+        TTF_SetFontKerning(font_, allowed);
+        return *this;
+    }
 
 	///@}
 
@@ -319,7 +365,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC29
 	///
 	////////////////////////////////////////////////////////////
-	int GetHeight() const;
+	int GetHeight() const {
+        return TTF_FontHeight(font_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the maximum pixel ascent of all glyphs of the loaded font
@@ -339,7 +387,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC30
 	///
 	////////////////////////////////////////////////////////////
-	int GetAscent() const;
+	int GetAscent() const {
+        return TTF_FontAscent(font_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the maximum pixel descent of all glyphs of the loaded font
@@ -360,7 +410,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC31
 	///
 	////////////////////////////////////////////////////////////
-	int GetDescent() const;
+	int GetDescent() const {
+        return TTF_FontDescent(font_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the recommended pixel height of a rendered line of text of the loaded font
@@ -372,7 +424,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC32
 	///
 	////////////////////////////////////////////////////////////
-	int GetLineSkip() const;
+	int GetLineSkip() const {
+        return TTF_FontLineSkip(font_);
+    }
 
 	///@}
 
@@ -392,7 +446,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC33
 	///
 	////////////////////////////////////////////////////////////
-	long GetNumFaces() const;
+	long GetNumFaces() const {
+        return TTF_FontFaces(font_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Test if the current font face of the loaded font is a fixed width font
@@ -411,7 +467,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC34
 	///
 	////////////////////////////////////////////////////////////
-	bool IsFixedWidth() const;
+	bool IsFixedWidth() const {
+        return TTF_FontFaceIsFixedWidth(font_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the current font face family name from the loaded font
@@ -423,7 +481,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC35
 	///
 	////////////////////////////////////////////////////////////
-	Optional<std::string> GetFamilyName() const;
+	Optional<std::string> GetFamilyName() const {
+        const char* str = TTF_FontFaceFamilyName(font_);
+        if (str == nullptr)
+            return NullOpt;
+        return std::string(str);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the current font face style name from the loaded font
@@ -435,7 +498,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC36
 	///
 	////////////////////////////////////////////////////////////
-	Optional<std::string> GetStyleName() const;
+	Optional<std::string> GetStyleName() const {
+        const char* str = TTF_FontFaceStyleName(font_);
+        if (str == nullptr)
+            return NullOpt;
+        return std::string(str);
+    }
 
 	///@}
 
@@ -452,7 +520,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC37
 	///
 	////////////////////////////////////////////////////////////
-	int IsGlyphProvided(Uint16 ch) const;
+	int IsGlyphProvided(Uint16 ch) const {
+        return TTF_GlyphIsProvided(font_, ch);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get glyph metrics of the UNICODE char
@@ -470,7 +540,10 @@ public:
 	/// \see http://freetype.sourceforge.net/freetype2/docs/tutorial/step2.html
 	///
 	////////////////////////////////////////////////////////////
-	void GetGlyphMetrics(Uint16 ch, int& minx, int& maxx, int& miny, int& maxy, int& advance) const;
+	void GetGlyphMetrics(Uint16 ch, int& minx, int& maxx, int& miny, int& maxy, int& advance) const {
+        if (TTF_GlyphMetrics(font_, ch, &minx, &maxx, &miny, &maxy, &advance) != 0)
+            throw Exception("TTF_GlyphMetrics");
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get rect part of glyph metrics of the UNICODE char
@@ -485,7 +558,12 @@ public:
 	/// \see http://freetype.sourceforge.net/freetype2/docs/tutorial/step2.html
 	///
 	////////////////////////////////////////////////////////////
-	Rect GetGlyphRect(Uint16 ch) const;
+	Rect GetGlyphRect(Uint16 ch) const {
+        int minx, maxx, miny, maxy;
+        if (TTF_GlyphMetrics(font_, ch, &minx, &maxx, &miny, &maxy, nullptr) != 0)
+            throw Exception("TTF_GlyphMetrics");
+        return Rect(minx, miny, maxx - minx, maxy - miny);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get advance part of glyph metrics of the UNICODE char
@@ -500,7 +578,12 @@ public:
 	/// \see http://freetype.sourceforge.net/freetype2/docs/tutorial/step2.html
 	///
 	////////////////////////////////////////////////////////////
-	int GetGlyphAdvance(Uint16 ch) const;
+	int GetGlyphAdvance(Uint16 ch) const {
+        int advance;
+        if (TTF_GlyphMetrics(font_, ch, nullptr, nullptr, nullptr, nullptr, &advance) != 0)
+            throw Exception("TTF_GlyphMetrics");
+        return advance;
+    }
 
 	///@}
 
@@ -523,7 +606,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC39
 	///
 	////////////////////////////////////////////////////////////
-	Point GetSizeText(const std::string& text) const;
+	Point GetSizeText(const std::string& text) const {
+        int w, h;
+        if (TTF_SizeText(font_, text.c_str(), &w, &h) != 0)
+            throw Exception("TTF_SizeText");
+        return Point(w, h);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Calculate the resulting surface size of the UTF8 encoded text rendered using font
@@ -541,7 +629,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC40
 	///
 	////////////////////////////////////////////////////////////
-	Point GetSizeUTF8(const std::string& text) const;
+	Point GetSizeUTF8(const std::string& text) const {
+        int w, h;
+        if (TTF_SizeUTF8(font_, text.c_str(), &w, &h) != 0)
+            throw Exception("TTF_SizeUTF8");
+        return Point(w, h);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Calculate the resulting surface size of the UNICODE encoded text rendered using font
@@ -559,7 +652,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC41
 	///
 	////////////////////////////////////////////////////////////
-	Point GetSizeUNICODE(const Uint16* text) const;
+	Point GetSizeUNICODE(const Uint16* text) const {
+        int w, h;
+        if (TTF_SizeUNICODE(font_, text, &w, &h) != 0)
+            throw Exception("TTF_SizeUNICODE");
+        return Point(w, h);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Calculate the resulting surface size of the UNICODE encoded text rendered using font
@@ -577,7 +675,11 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC41
 	///
 	////////////////////////////////////////////////////////////
-	Point GetSizeUNICODE(const std::u16string& text) const;
+	Point GetSizeUNICODE(const std::u16string& text) const {
+        std::vector<Uint16> uint16_text(text.length() + 1);
+        std::copy(text.begin(), text.end(), uint16_text.begin());
+        return GetSizeUNICODE(uint16_text.data());
+    }
 
 	///@}
 
@@ -597,7 +699,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC43
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderText_Solid(const std::string& text, SDL_Color fg);
+	Surface RenderText_Solid(const std::string& text, SDL_Color fg) {
+        SDL_Surface* surface = TTF_RenderText_Solid(font_, text.c_str(), fg);
+        if (surface == nullptr)
+            throw Exception("TTF_RenderText_Solid");
+        return Surface(surface);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Render UTF8 text using solid mode
@@ -612,7 +719,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC44
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderUTF8_Solid(const std::string& text, SDL_Color fg);
+	Surface RenderUTF8_Solid(const std::string& text, SDL_Color fg) {
+        SDL_Surface* surface = TTF_RenderUTF8_Solid(font_, text.c_str(), fg);
+        if (surface == nullptr)
+            throw Exception("TTF_RenderUTF8_Solid");
+        return Surface(surface);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Render UNICODE encoded text using solid mode
@@ -627,7 +739,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC45
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderUNICODE_Solid(const Uint16* text, SDL_Color fg);
+	Surface RenderUNICODE_Solid(const Uint16* text, SDL_Color fg) {
+        SDL_Surface* surface = TTF_RenderUNICODE_Solid(font_, text, fg);
+        if (surface == nullptr)
+            throw Exception("TTF_RenderUNICODE_Solid");
+        return Surface(surface);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Render UNICODE encoded text using solid mode
@@ -642,7 +759,11 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC45
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderUNICODE_Solid(const std::u16string& text, SDL_Color fg);
+	Surface RenderUNICODE_Solid(const std::u16string& text, SDL_Color fg) {
+        std::vector<Uint16> uint16_text(text.length() + 1);
+        std::copy(text.begin(), text.end(), uint16_text.begin());
+        return Font::RenderUNICODE_Solid(uint16_text.data(), fg);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Render the glyph for UNICODE character using solid mode
@@ -657,7 +778,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC46
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderGlyph_Solid(Uint16 ch, SDL_Color fg);
+	Surface RenderGlyph_Solid(Uint16 ch, SDL_Color fg) {
+        SDL_Surface* surface = TTF_RenderGlyph_Solid(font_, ch, fg);
+        if (surface == nullptr)
+            throw Exception("TTF_RenderGlyph_Solid");
+        return Surface(surface);
+    }
 
 	///@}
 
@@ -678,7 +804,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC47
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderText_Shaded(const std::string& text, SDL_Color fg, SDL_Color bg);
+	Surface RenderText_Shaded(const std::string& text, SDL_Color fg, SDL_Color bg) {
+        SDL_Surface* surface = TTF_RenderText_Shaded(font_, text.c_str(), fg, bg);
+        if (surface == nullptr)
+            throw Exception("TTF_RenderText_Shaded");
+        return Surface(surface);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Render UTF8 text using shaded mode
@@ -694,7 +825,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC48
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderUTF8_Shaded(const std::string& text, SDL_Color fg, SDL_Color bg);
+	Surface RenderUTF8_Shaded(const std::string& text, SDL_Color fg, SDL_Color bg) {
+        SDL_Surface* surface = TTF_RenderUTF8_Shaded(font_, text.c_str(), fg, bg);
+        if (surface == nullptr)
+            throw Exception("TTF_RenderUTF8_Shaded");
+        return Surface(surface);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Render UNICODE encoded text using shaded mode
@@ -710,7 +846,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC49
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderUNICODE_Shaded(const Uint16* text, SDL_Color fg, SDL_Color bg);
+	Surface RenderUNICODE_Shaded(const Uint16* text, SDL_Color fg, SDL_Color bg) {
+        SDL_Surface* surface = TTF_RenderUNICODE_Shaded(font_, text, fg, bg);
+        if (surface == nullptr)
+            throw Exception("TTF_RenderUNICODE_Shaded");
+        return Surface(surface);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Render UNICODE encoded text using shaded mode
@@ -726,7 +867,11 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC49
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderUNICODE_Shaded(const std::u16string& text, SDL_Color fg, SDL_Color bg);
+	Surface RenderUNICODE_Shaded(const std::u16string& text, SDL_Color fg, SDL_Color bg) {
+        std::vector<Uint16> uint16_text(text.length() + 1);
+        std::copy(text.begin(), text.end(), uint16_text.begin());
+        return Font::RenderUNICODE_Shaded(uint16_text.data(), fg, bg);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Render the glyph for UNICODE character using shaded mode
@@ -742,7 +887,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC50
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderGlyph_Shaded(Uint16 ch, SDL_Color fg, SDL_Color bg);
+	Surface RenderGlyph_Shaded(Uint16 ch, SDL_Color fg, SDL_Color bg) {
+        SDL_Surface* surface = TTF_RenderGlyph_Shaded(font_, ch, fg, bg);
+        if (surface == nullptr)
+            throw Exception("TTF_RenderGlyph_Shaded");
+        return Surface(surface);
+    }
 
 	///@}
 
@@ -762,7 +912,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC51
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderText_Blended(const std::string& text, SDL_Color fg);
+	Surface RenderText_Blended(const std::string& text, SDL_Color fg) {
+        SDL_Surface* surface = TTF_RenderText_Blended(font_, text.c_str(), fg);
+        if (surface == nullptr)
+            throw Exception("TTF_RenderText_Blended");
+        return Surface(surface);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Render UTF8 text using blended mode
@@ -777,7 +932,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC52
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderUTF8_Blended(const std::string& text, SDL_Color fg);
+	Surface RenderUTF8_Blended(const std::string& text, SDL_Color fg) {
+        SDL_Surface* surface = TTF_RenderUTF8_Blended(font_, text.c_str(), fg);
+        if (surface == nullptr)
+            throw Exception("TTF_RenderUTF8_Blended");
+        return Surface(surface);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Render UNICODE encoded text using blended mode
@@ -792,7 +952,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC53
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderUNICODE_Blended(const Uint16* text, SDL_Color fg);
+	Surface RenderUNICODE_Blended(const Uint16* text, SDL_Color fg) {
+        SDL_Surface* surface = TTF_RenderUNICODE_Blended(font_, text, fg);
+        if (surface == nullptr)
+            throw Exception("TTF_RenderUNICODE_Blended");
+        return Surface(surface);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Render UNICODE encoded text using blended mode
@@ -807,7 +972,11 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC53
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderUNICODE_Blended(const std::u16string& text, SDL_Color fg);
+	Surface RenderUNICODE_Blended(const std::u16string& text, SDL_Color fg) {
+        std::vector<Uint16> uint16_text(text.length() + 1);
+        std::copy(text.begin(), text.end(), uint16_text.begin());
+        return Font::RenderUNICODE_Blended(uint16_text.data(), fg);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Render the glyph for UNICODE character using blended mode
@@ -822,7 +991,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html#SEC54
 	///
 	////////////////////////////////////////////////////////////
-	Surface RenderGlyph_Blended(Uint16 ch, SDL_Color fg);
+	Surface RenderGlyph_Blended(Uint16 ch, SDL_Color fg) {
+        SDL_Surface* surface = TTF_RenderGlyph_Blended(font_, ch, fg);
+        if (surface == nullptr)
+            throw Exception("TTF_RenderGlyph_Blended");
+        return Surface(surface);
+    }
 
 	///@}
 };

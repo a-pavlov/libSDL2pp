@@ -26,6 +26,8 @@
 
 #include <SDL2pp/AudioSpec.hh>
 #include <SDL2pp/Export.hh>
+#include <SDL2pp/Exception.hh>
+#include <SDL2pp/RWops.hh>
 
 namespace SDL2pp {
 
@@ -67,7 +69,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_LoadWAV
 	///
 	////////////////////////////////////////////////////////////
-	explicit Wav(const std::string& file);
+	explicit Wav(const std::string& file) {
+		if (SDL_LoadWAV(file.c_str(), &spec_, &audio_buffer_, &audio_length_) == nullptr)
+			throw Exception("SDL_LoadWAV");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Load audio using RWops
@@ -79,13 +84,19 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_LoadWAV_RW
 	///
 	////////////////////////////////////////////////////////////
-	explicit Wav(RWops& rwops);
+	explicit Wav(RWops& rwops) {
+		if (SDL_LoadWAV_RW(rwops.Get(), 0, &spec_, &audio_buffer_, &audio_length_) == nullptr)
+			throw Exception("SDL_LoadWAV_RW");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Destructor
 	///
 	////////////////////////////////////////////////////////////
-	~Wav();
+	~Wav() {
+		if (audio_buffer_ != nullptr)
+			SDL_FreeWAV(audio_buffer_);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move constructor
@@ -93,7 +104,10 @@ public:
 	/// \param[in] other SDL2pp::Wav object to move data from
 	///
 	////////////////////////////////////////////////////////////
-	Wav(Wav&& other) noexcept;
+	Wav(Wav&& other) noexcept : audio_buffer_(other.audio_buffer_), audio_length_(other.audio_length_), spec_(std::move(other.spec_)) {
+		other.audio_buffer_ = nullptr;
+		other.audio_length_ = 0;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move assignment operator
@@ -103,7 +117,22 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	Wav& operator=(Wav&& other) noexcept;
+	Wav& operator=(Wav&& other) noexcept {
+		if (&other == this)
+			return *this;
+
+		if (audio_buffer_ != nullptr)
+			SDL_FreeWAV(audio_buffer_);
+
+		spec_ = std::move(other.spec_);
+		audio_buffer_ = other.audio_buffer_;
+		audio_length_ = other.audio_length_;
+
+		other.audio_buffer_ = nullptr;
+		other.audio_length_ = 0;
+
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor
@@ -127,7 +156,9 @@ public:
 	/// \returns Length of audio data in bytes
 	///
 	////////////////////////////////////////////////////////////
-	Uint32 GetLength() const;
+	Uint32 GetLength() const {
+		return audio_length_;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get pointer to raw audio data
@@ -135,7 +166,9 @@ public:
 	/// \returns Pointer to raw audio data
 	///
 	////////////////////////////////////////////////////////////
-	Uint8* GetBuffer();
+	Uint8* GetBuffer() {
+		return audio_buffer_;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get constant pointer to raw audio data
@@ -143,7 +176,9 @@ public:
 	/// \returns Constant pointer to raw audio data
 	///
 	////////////////////////////////////////////////////////////
-	const Uint8* GetBuffer() const;
+	const Uint8* GetBuffer() const {
+		return audio_buffer_;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get descriptor of audio format
@@ -151,7 +186,9 @@ public:
 	/// \returns SDL2pp::AudioSpec describing format of audio data
 	///
 	////////////////////////////////////////////////////////////
-	const AudioSpec& GetSpec() const;
+	const AudioSpec& GetSpec() const {
+		return spec_;
+	}
 };
 
 }

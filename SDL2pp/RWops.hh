@@ -23,6 +23,7 @@
 #define SDL2PP_RWOPS_HH
 
 #include <string>
+#include <cassert>
 
 #include <SDL_rwops.h>
 #include <SDL2pp/Exception.hh>
@@ -158,19 +159,106 @@ protected:
 	SDL_RWops* rwops_; ///< Managed SDL_RWops object
 
 private:
-	static Sint64 StdSizeFuncWrapper(SDL_RWops* context);
-	static Sint64 StdSeekFuncWrapper(SDL_RWops* context, Sint64 offset, int whence);
-	static size_t StdReadFuncWrapper(SDL_RWops* context, void *ptr, size_t size, size_t maxnum);
-	static size_t StdWriteFuncWrapper(SDL_RWops* context, const void *ptr, size_t size, size_t maxnum);
-	static int StdCloseFuncWrapper(SDL_RWops* context);
+	static Sint64 StdSizeFuncWrapper(SDL_RWops* context) {
+		assert(context != nullptr);
+		SDL_RWops* sdl_rwops = reinterpret_cast<SDL_RWops*>(context->hidden.unknown.data1);
+		assert(sdl_rwops != nullptr);
+		return sdl_rwops->size(sdl_rwops);
+	}
 
-	static Sint64 CustomSizeFuncWrapper(SDL_RWops* context);
-	static Sint64 CustomSeekFuncWrapper(SDL_RWops* context, Sint64 offset, int whence);
-	static size_t CustomReadFuncWrapper(SDL_RWops* context, void *ptr, size_t size, size_t maxnum);
-	static size_t CustomWriteFuncWrapper(SDL_RWops* context, const void *ptr, size_t size, size_t maxnum);
-	static int CustomCloseFuncWrapper(SDL_RWops* context);
+	static Sint64 StdSeekFuncWrapper(SDL_RWops* context, Sint64 offset, int whence) {
+        assert(context != nullptr);
+        SDL_RWops* sdl_rwops = reinterpret_cast<SDL_RWops*>(context->hidden.unknown.data1);
+        assert(sdl_rwops != nullptr);
+        return sdl_rwops->seek(sdl_rwops, offset, whence);
+    }
 
-	static RWops CheckedCreateStandardRWops(SDL_RWops* sdl_rwops, const char* errmsg);
+	static size_t StdReadFuncWrapper(SDL_RWops* context, void *ptr, size_t size, size_t maxnum) {
+        assert(context != nullptr);
+        SDL_RWops* sdl_rwops = reinterpret_cast<SDL_RWops*>(context->hidden.unknown.data1);
+        assert(sdl_rwops != nullptr);
+        return sdl_rwops->read(sdl_rwops, ptr, size, maxnum);
+    }
+
+	static size_t StdWriteFuncWrapper(SDL_RWops* context, const void *ptr, size_t size, size_t maxnum) {
+        assert(context != nullptr);
+        SDL_RWops* sdl_rwops = reinterpret_cast<SDL_RWops*>(context->hidden.unknown.data1);
+        assert(sdl_rwops != nullptr);
+        return sdl_rwops->write(sdl_rwops, ptr, size, maxnum);
+    }
+
+	static int StdCloseFuncWrapper(SDL_RWops* context) {
+        assert(context != nullptr);
+        SDL_RWops* sdl_rwops = reinterpret_cast<SDL_RWops*>(context->hidden.unknown.data1);
+        RWops* rwops = reinterpret_cast<RWops*>(context->hidden.unknown.data2);
+        assert(sdl_rwops != nullptr);
+        assert(rwops != nullptr);
+
+        // this automatically frees sdl_rwops
+        int ret = sdl_rwops->close(sdl_rwops);
+
+        SDL_FreeRW(rwops->rwops_);
+        rwops->rwops_ = nullptr;
+
+        return ret;
+    }
+
+	static Sint64 CustomSizeFuncWrapper(SDL_RWops* context) {
+        assert(context != nullptr);
+        CustomRWops* custom_rwops = reinterpret_cast<CustomRWops*>(context->hidden.unknown.data1);
+        assert(custom_rwops != nullptr);
+        return custom_rwops->Size();
+    }
+
+	static Sint64 CustomSeekFuncWrapper(SDL_RWops* context, Sint64 offset, int whence) {
+        assert(context != nullptr);
+        CustomRWops* custom_rwops = reinterpret_cast<CustomRWops*>(context->hidden.unknown.data1);
+        assert(custom_rwops != nullptr);
+        return custom_rwops->Seek(offset, whence);
+    }
+
+	static size_t CustomReadFuncWrapper(SDL_RWops* context, void *ptr, size_t size, size_t maxnum) {
+        assert(context != nullptr);
+        CustomRWops* custom_rwops = reinterpret_cast<CustomRWops*>(context->hidden.unknown.data1);
+        assert(custom_rwops != nullptr);
+        return custom_rwops->Read(ptr, size, maxnum);
+    }
+
+	static size_t CustomWriteFuncWrapper(SDL_RWops* context, const void *ptr, size_t size, size_t maxnum) {
+        assert(context != nullptr);
+        CustomRWops* custom_rwops = reinterpret_cast<CustomRWops*>(context->hidden.unknown.data1);
+        assert(custom_rwops != nullptr);
+        return custom_rwops->Write(ptr, size, maxnum);
+    }
+
+	static int CustomCloseFuncWrapper(SDL_RWops* context) {
+        assert(context != nullptr);
+        CustomRWops* custom_rwops = reinterpret_cast<CustomRWops*>(context->hidden.unknown.data1);
+        RWops* rwops = reinterpret_cast<RWops*>(context->hidden.unknown.data2);
+        assert(custom_rwops != nullptr);
+        assert(rwops != nullptr);
+
+        int ret = custom_rwops->Close();
+
+        delete custom_rwops;
+
+        SDL_FreeRW(rwops->rwops_);
+        rwops->rwops_ = nullptr;
+
+        return ret;
+    }
+
+	static RWops CheckedCreateStandardRWops(SDL_RWops* sdl_rwops, const char* errmsg) {
+        if (sdl_rwops == nullptr)
+            throw Exception(errmsg);
+
+        try {
+            return RWops(sdl_rwops);
+        } catch (...) {
+            SDL_FreeRW(sdl_rwops);
+            throw;
+        }
+    }
 
 public:
 	////////////////////////////////////////////////////////////
@@ -185,7 +273,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_RWFromFP
 	///
 	////////////////////////////////////////////////////////////
-	static RWops FromFP(FILE* file, bool autoclose);
+	static RWops FromFP(FILE* file, bool autoclose) {
+        return CheckedCreateStandardRWops(SDL_RWFromFP(file, autoclose ? SDL_TRUE : SDL_FALSE), "SDL_RWFromFP");
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Create RWops working with a constant memory chunk
@@ -198,7 +288,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_RWFromConstMem
 	///
 	////////////////////////////////////////////////////////////
-	static RWops FromConstMem(const void* mem, int size);
+	static RWops FromConstMem(const void* mem, int size) {
+        return CheckedCreateStandardRWops(SDL_RWFromConstMem(mem, size), "SDL_RWFromConstMem");
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Create RWops working with a memory chunk
@@ -211,7 +303,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_RWFromMem
 	///
 	////////////////////////////////////////////////////////////
-	static RWops FromMem(void* mem, int size);
+	static RWops FromMem(void* mem, int size) {
+        return CheckedCreateStandardRWops(SDL_RWFromMem(mem, size), "SDL_RWFromMem");
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Create RWops working with plain file
@@ -224,7 +318,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_RWFromFile
 	///
 	////////////////////////////////////////////////////////////
-	static RWops FromFile(const std::string& file, const std::string& mode = "rb");
+	static RWops FromFile(const std::string& file, const std::string& mode = "rb") {
+        return CheckedCreateStandardRWops(SDL_RWFromFile(file.c_str(), mode.c_str()), "SDL_RWFromFile");
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Create RWops from existing SDL2 SDL_RWops structure
@@ -232,7 +328,22 @@ public:
 	/// \param[in] rwops Pointer to SDL_RWops to use
 	///
 	////////////////////////////////////////////////////////////
-	explicit RWops(SDL_RWops* rwops);
+	explicit RWops(SDL_RWops* rwops) {
+        assert(rwops);
+
+        rwops_ = SDL_AllocRW();
+        if (rwops_ == nullptr)
+            throw Exception("SDL_AllocRW");
+
+        rwops_->size = StdSizeFuncWrapper;
+        rwops_->seek = StdSeekFuncWrapper;
+        rwops_->read = StdReadFuncWrapper;
+        rwops_->write = StdWriteFuncWrapper;
+        rwops_->close = StdCloseFuncWrapper;
+        rwops_->type = 0x57525370; // "pSRW" for libSDLp[p] [S]tandard [RW]ops
+        rwops_->hidden.unknown.data1 = static_cast<void*>(rwops);
+        rwops_->hidden.unknown.data2 = static_cast<void*>(this);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move constructor
@@ -240,7 +351,10 @@ public:
 	/// \param[in] other SDL2pp::RWops to move data from
 	///
 	////////////////////////////////////////////////////////////
-	RWops(RWops&& other) noexcept;
+	RWops(RWops&& other) noexcept : rwops_(other.rwops_) {
+        other.rwops_ = nullptr;
+        rwops_->hidden.unknown.data2 = static_cast<void*>(this);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move assignment operator
@@ -250,7 +364,16 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	RWops& operator=(RWops&& other) noexcept;
+	RWops& operator=(RWops&& other) noexcept {
+        if (&other == this)
+            return *this;
+        if (rwops_ != nullptr)
+            Close();
+        rwops_ = other.rwops_;
+        rwops_->hidden.unknown.data2 = static_cast<void*>(this);
+        other.rwops_ = nullptr;
+        return *this;
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor
@@ -303,7 +426,10 @@ public:
 	/// \brief Destructor
 	///
 	////////////////////////////////////////////////////////////
-	~RWops();
+	~RWops() {
+        if (rwops_ != nullptr)
+            Close();
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get pointer to managed SDL_RWops structure
@@ -311,7 +437,9 @@ public:
 	/// \returns Pointer to managed SDL_RWops structure
 	///
 	////////////////////////////////////////////////////////////
-	SDL_RWops* Get() const;
+	SDL_RWops* Get() const {
+        return rwops_;
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Close data source
@@ -321,7 +449,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_RWclose
 	///
 	////////////////////////////////////////////////////////////
-	int Close();
+	int Close() {
+        return SDL_RWclose(rwops_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Read from a data stream
@@ -335,7 +465,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_RWread
 	///
 	////////////////////////////////////////////////////////////
-	size_t Read(void* ptr, size_t size, size_t maxnum);
+	size_t Read(void* ptr, size_t size, size_t maxnum) {
+        return SDL_RWread(rwops_, ptr, size, maxnum);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Seek within the data stream
@@ -349,7 +481,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_RWseek
 	///
 	////////////////////////////////////////////////////////////
-	Sint64 Seek(Sint64 offset, int whence);
+	Sint64 Seek(Sint64 offset, int whence) {
+        return SDL_RWseek(rwops_, offset, whence);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Write to a data stream
@@ -363,7 +497,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_RWwrite
 	///
 	////////////////////////////////////////////////////////////
-	size_t Write(const void* ptr, size_t size, size_t num);
+	size_t Write(const void* ptr, size_t size, size_t num) {
+        return SDL_RWwrite(rwops_, ptr, size, num);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Determine the current read/write offset within the data stream
@@ -373,7 +509,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_RWtell
 	///
 	////////////////////////////////////////////////////////////
-	Sint64 Tell();
+	Sint64 Tell() {
+        return SDL_RWtell(rwops_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get current size of the data container
@@ -381,7 +519,9 @@ public:
 	/// \returns Data container size in bytes, or -1 if the information can not be determined
 	///
 	////////////////////////////////////////////////////////////
-	Sint64 Size();
+	Sint64 Size() {
+        return SDL_RWsize(rwops_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Read 16 bits of big-endian data from data stream
@@ -392,7 +532,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_ReadBE16
 	///
 	////////////////////////////////////////////////////////////
-	Uint16 ReadBE16();
+	Uint16 ReadBE16() {
+        return SDL_ReadBE16(rwops_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Read 32 bits of big-endian data from data stream
@@ -403,7 +545,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_ReadBE32
 	///
 	////////////////////////////////////////////////////////////
-	Uint32 ReadBE32();
+	Uint32 ReadBE32() {
+        return SDL_ReadBE32(rwops_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Read 64 bits of big-endian data from data stream
@@ -414,7 +558,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_ReadBE64
 	///
 	////////////////////////////////////////////////////////////
-	Uint64 ReadBE64();
+	Uint64 ReadBE64() {
+        return SDL_ReadBE64(rwops_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Read 16 bits of little-endian data from data stream
@@ -425,7 +571,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_ReadLE16
 	///
 	////////////////////////////////////////////////////////////
-	Uint16 ReadLE16();
+	Uint16 ReadLE16() {
+        return SDL_ReadLE16(rwops_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Read 32 bits of little-endian data from data stream
@@ -436,9 +584,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_ReadLE32
 	///
 	////////////////////////////////////////////////////////////
-	Uint32 ReadLE32();
+	Uint32 ReadLE32() {
+        return SDL_ReadLE32(rwops_);
+    }
 
-	////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////
 	/// \brief Read 64 bits of little-endian data from data stream
 	///        and return in native format
 	///
@@ -447,7 +597,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_ReadLE64
 	///
 	////////////////////////////////////////////////////////////
-	Uint64 ReadLE64();
+	Uint64 ReadLE64() {
+        return SDL_ReadLE64(rwops_);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Write 16 bits in native format to a data stream
@@ -460,7 +612,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_WriteBE16
 	///
 	////////////////////////////////////////////////////////////
-	size_t WriteBE16(Uint16 value);
+	size_t WriteBE16(Uint16 value) {
+        return SDL_WriteBE16(rwops_, value);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Write 32 bits in native format to a data stream
@@ -473,7 +627,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_WriteBE32
 	///
 	////////////////////////////////////////////////////////////
-	size_t WriteBE32(Uint32 value);
+	size_t WriteBE32(Uint32 value) {
+        return SDL_WriteBE32(rwops_, value);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Write 64 bits in native format to a data stream
@@ -486,7 +642,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_WriteBE64
 	///
 	////////////////////////////////////////////////////////////
-	size_t WriteBE64(Uint64 value);
+	size_t WriteBE64(Uint64 value) {
+        return SDL_WriteBE64(rwops_, value);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Write 16 bits in native format to a data stream
@@ -499,7 +657,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_WriteLE16
 	///
 	////////////////////////////////////////////////////////////
-	size_t WriteLE16(Uint16 value);
+	size_t WriteLE16(Uint16 value) {
+        return SDL_WriteLE16(rwops_, value);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Write 32 bits in native format to a data stream
@@ -512,7 +672,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_WriteLE32
 	///
 	////////////////////////////////////////////////////////////
-	size_t WriteLE32(Uint32 value);
+	size_t WriteLE32(Uint32 value) {
+        return SDL_WriteLE32(rwops_, value);
+    }
 
 	////////////////////////////////////////////////////////////
 	/// \brief Write 64 bits in native format to a data stream
@@ -525,7 +687,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_WriteLE64
 	///
 	////////////////////////////////////////////////////////////
-	size_t WriteLE64(Uint64 value);
+	size_t WriteLE64(Uint64 value) {
+        return SDL_WriteLE64(rwops_, value);
+    }
 };
 
 }

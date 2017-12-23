@@ -125,9 +125,6 @@ SET(LIBRARY_SOURCES
 	SDL2pp/AudioDevice.cc
 	SDL2pp/AudioLock.cc
 	SDL2pp/AudioSpec.cc
-        SDL2pp/RWops.cc
-        SDL2pp/SDL.cc
-		SDL2pp/Wav.cc
         )
 
 SET(LIBRARY_HEADERS
@@ -156,11 +153,7 @@ SET(LIBRARY_EXTERNAL_HEADERS
 
 # optional sources
 IF(SDL2PP_WITH_TTF)
-	SET(LIBRARY_SOURCES
-		${LIBRARY_SOURCES}
-		SDL2pp/SDLTTF.cc
-		SDL2pp/Font.cc
-	)
+
 	SET(LIBRARY_HEADERS
 		${LIBRARY_HEADERS}
 		SDL2pp/SDLTTF.hh
@@ -183,8 +176,7 @@ IF(SDL2PP_WITH_MIXER)
 	SET(LIBRARY_SOURCES
 		${LIBRARY_SOURCES}
             SDL2pp/Mixer.cc
-		SDL2pp/Music.cc
-		SDL2pp/SDLMixer.cc
+            SDL2pp/SDLMixer.cc
 	)
 	SET(LIBRARY_HEADERS
 		${LIBRARY_HEADERS}

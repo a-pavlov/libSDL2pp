@@ -23,7 +23,9 @@
 #define SDL2PP_SDL_HH
 
 #include <SDL_stdinc.h>
+#include <SDL.h>
 
+#include <SDL2pp/Exception.hh>
 #include <SDL2pp/Export.hh>
 
 namespace SDL2pp {
@@ -68,7 +70,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_Init
 	///
 	////////////////////////////////////////////////////////////
-	SDL(Uint32 flags);
+	SDL(Uint32 flags) {
+		if (SDL_Init(flags) != 0)
+			throw Exception("SDL_Init");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Destructor, deinitializes SDL2 library
@@ -76,7 +81,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_Quit
 	///
 	////////////////////////////////////////////////////////////
-	virtual ~SDL();
+	virtual ~SDL() {
+		SDL_Quit();
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor
@@ -123,7 +130,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_WasInit
 	///
 	////////////////////////////////////////////////////////////
-	Uint32 WasInit(Uint32 flags);
+	Uint32 WasInit(Uint32 flags) {
+		return SDL_WasInit(flags);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Initializes additional SDL2 subsystems
@@ -136,7 +145,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_InitSubSystem
 	///
 	////////////////////////////////////////////////////////////
-	void InitSubSystem(Uint32 flags);
+	void InitSubSystem(Uint32 flags) {
+		if (SDL_InitSubSystem(flags) != 0)
+			throw Exception("SDL_InitSubsystem");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deinitializes specific SDL2 subsystems
@@ -147,7 +159,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_QuitSubSystem
 	///
 	////////////////////////////////////////////////////////////
-	void QuitSubSystem(Uint32 flags);
+	void QuitSubSystem(Uint32 flags) {
+		SDL_QuitSubSystem(flags);
+	}
 };
 
 }
