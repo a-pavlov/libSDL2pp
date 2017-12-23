@@ -24,7 +24,6 @@
 
 #include <SDL_ttf.h>
 #include <SDL2pp/Exception.hh>
-#include <SDL2pp/Export.hh>
 
 namespace SDL2pp {
 
@@ -55,7 +54,7 @@ namespace SDL2pp {
 /// \endcode
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT SDLTTF {
+class SDLTTF {
 public:
 	////////////////////////////////////////////////////////////
 	/// \brief Initializes SDL_ttf library

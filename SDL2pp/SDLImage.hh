@@ -22,7 +22,10 @@
 #ifndef SDL2PP_SDLIMAGE_HH
 #define SDL2PP_SDLIMAGE_HH
 
-#include <SDL2pp/Export.hh>
+#include <SDL_image.h>
+
+#include <SDL2pp/SDLImage.hh>
+#include <SDL2pp/Exception.hh>
 
 namespace SDL2pp {
 
@@ -55,7 +58,7 @@ namespace SDL2pp {
 /// \endcode
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT SDLImage {
+class SDLImage {
 public:
 	////////////////////////////////////////////////////////////
 	/// \brief Initializes SDL_image library
@@ -67,7 +70,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_image/docs/SDL_image.html#SEC8
 	///
 	////////////////////////////////////////////////////////////
-	explicit SDLImage(int flags = 0);
+	explicit SDLImage(int flags = 0){
+		if ((IMG_Init(flags) & flags) != flags)
+			throw Exception("IMG_Init");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Destructor, deinitializes SDL_image library
@@ -75,7 +81,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_image/docs/SDL_image.html#SEC9
 	///
 	////////////////////////////////////////////////////////////
-	virtual ~SDLImage();
+	virtual ~SDLImage(){
+		IMG_Quit();
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Try to init more SDL_image formats
@@ -87,7 +95,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_image/docs/SDL_image.html#SEC8
 	///
 	////////////////////////////////////////////////////////////
-	int InitMore(int flags);
+	int InitMore(int flags) {
+		int ret;
+		if (((ret = IMG_Init(flags)) & flags) != flags)
+			throw Exception("IMG_Init");
+		return ret;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get mask of initialized SDL_image formats
@@ -95,7 +108,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_image/docs/SDL_image.html#SEC8
 	///
 	////////////////////////////////////////////////////////////
-	int GetInitFlags();
+	int GetInitFlags() {
+		return IMG_Init(0);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor

@@ -22,9 +22,8 @@
 #ifndef SDL2PP_AUDIOSPEC_HH
 #define SDL2PP_AUDIOSPEC_HH
 
+#include <algorithm>
 #include <SDL_audio.h>
-
-#include <SDL2pp/Export.hh>
 
 namespace SDL2pp {
 
@@ -43,7 +42,7 @@ namespace SDL2pp {
 /// \see http://wiki.libsdl.org/SDL_AudioSpec
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT AudioSpec : public SDL_AudioSpec {
+class AudioSpec : public SDL_AudioSpec {
 public:
 	////////////////////////////////////////////////////////////
 	/// \brief Create empty (invalid) audio format specification
@@ -52,7 +51,9 @@ public:
 	/// existing SDL_AudioSpec structure with values.
 	///
 	////////////////////////////////////////////////////////////
-	AudioSpec();
+	AudioSpec() {
+		std::fill((char*)this, (char*)this + sizeof(SDL_AudioSpec), 0);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Create audio format specification with given properties
@@ -65,13 +66,19 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_AudioSpec#Remarks
 	///
 	////////////////////////////////////////////////////////////
-	AudioSpec(int freq, SDL_AudioFormat format, Uint8 channels, Uint16 samples);
+	AudioSpec(int freq, SDL_AudioFormat format, Uint8 channels, Uint16 samples) {
+		std::fill((char*)this, (char*)this + sizeof(SDL_AudioSpec), 0);
+		SDL_AudioSpec::freq = freq;
+		SDL_AudioSpec::format = format;
+		SDL_AudioSpec::channels = channels;
+		SDL_AudioSpec::samples = samples;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Destructor
 	///
 	////////////////////////////////////////////////////////////
-	~AudioSpec();
+	~AudioSpec(){}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move constructor
@@ -79,7 +86,7 @@ public:
 	/// \param[in] other SDL2pp::AudioSpec object to move data from
 	///
 	////////////////////////////////////////////////////////////
-	AudioSpec(AudioSpec&& other);
+	AudioSpec(AudioSpec&& other) = default;
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move assignment operator
@@ -89,7 +96,7 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	AudioSpec& operator=(AudioSpec&& other);
+	AudioSpec& operator=(AudioSpec&& other) = default;
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor
@@ -113,7 +120,9 @@ public:
 	/// \returns Pointer to managed SDL_AudioSpec structure
 	///
 	////////////////////////////////////////////////////////////
-	const SDL_AudioSpec* Get() const;
+	const SDL_AudioSpec* Get() const {
+		return static_cast<const SDL_AudioSpec*>(this);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Merges audio format changes from another SDL2pp::AudioSpec
@@ -121,7 +130,12 @@ public:
 	/// \param[in] obtained SDL2pp::AudioSpec to merge data from
 	///
 	////////////////////////////////////////////////////////////
-	void MergeChanges(const SDL_AudioSpec& obtained);
+	void MergeChanges(const SDL_AudioSpec& obtained) {
+		freq = obtained.freq;
+		format = obtained.format;
+		channels = obtained.channels;
+		samples = obtained.samples;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Checks if format of another SDL2pp::AudioSpec is the same
@@ -129,7 +143,9 @@ public:
 	/// \param[in] other SDL2pp::AudioSpec to compare to
 	///
 	////////////////////////////////////////////////////////////
-	bool IsSameFormat(const AudioSpec& other) const;
+	bool IsSameFormat(const AudioSpec& other) const {
+		return freq == other.freq && format == other.format && channels == other.channels;
+	}
 };
 
 }

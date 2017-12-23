@@ -28,7 +28,6 @@
 #include <SDL_blendmode.h>
 
 #include <SDL2pp/Optional.hh>
-#include <SDL2pp/Export.hh>
 #include <SDL2pp/Color.hh>
 
 #include <utility>
@@ -55,10 +54,6 @@ struct SDL_Texture;
 
 namespace SDL2pp {
 
-class Renderer;
-class RWops;
-class Surface;
-
 ////////////////////////////////////////////////////////////
 /// \brief Image stored in the graphics card memory that
 ///        can be used for fast drawing
@@ -68,7 +63,7 @@ class Surface;
 /// \headerfile SDL2pp/Texture.hh
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT Texture {
+class Texture {
 private:
 	SDL_Texture* texture_; ///< Managed SDL_Texture object
 

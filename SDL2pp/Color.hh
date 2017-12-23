@@ -26,8 +26,6 @@
 
 #include <SDL_pixels.h>
 
-#include <SDL2pp/Export.hh>
-
 namespace SDL2pp {
 
 ////////////////////////////////////////////////////////////
@@ -45,7 +43,7 @@ namespace SDL2pp {
 /// \see http://wiki.libsdl.org/SDL_Color
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT Color : public SDL_Color {
+class Color : public SDL_Color {
 public:
 	////////////////////////////////////////////////////////////
 	/// \brief Default constructor

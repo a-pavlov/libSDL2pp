@@ -28,12 +28,12 @@
 #include <SDL_stdinc.h>
 #include <SDL_mixer.h>
 
-#include <SDL2pp/Export.hh>
+#include <SDL2pp/Chunk.hh>
+#include <SDL2pp/Music.hh>
+#include <SDL2pp/Exception.hh>
 
 namespace SDL2pp {
 
-class Chunk;
-class Music;
 
 ////////////////////////////////////////////////////////////
 /// \brief Audio mixer
@@ -47,7 +47,7 @@ class Music;
 /// SDL2pp:Chunk's.
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT Mixer {
+class Mixer {
 public:
 	typedef void (*ChannelFinishedHandler)(int); ///< Function type for channel finished callback
 	typedef void (*MusicFinishedHandler)();      ///< Function type for music finished callback
@@ -81,7 +81,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC11
 	///
 	////////////////////////////////////////////////////////////
-	Mixer(int frequency, Uint16 format, int channels, int chunksize);
+	Mixer(int frequency, Uint16 format, int channels, int chunksize) : open_(true) {
+		if (Mix_OpenAudio(frequency, format, channels, chunksize) != 0)
+			throw Exception("Mix_OpenAudio");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Destructor
@@ -89,7 +92,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC12
 	///
 	////////////////////////////////////////////////////////////
-	~Mixer();
+	~Mixer() {
+		if (open_)
+			Mix_CloseAudio();
+	}
 
 	///@}
 
@@ -102,7 +108,9 @@ public:
 	/// \param[in] other SDL2pp::Mixer object to move data from
 	///
 	////////////////////////////////////////////////////////////
-	Mixer(Mixer&& other) noexcept;
+	Mixer(Mixer&& other) noexcept : open_(other.open_), current_music_hook_(std::move(other.current_music_hook_)) {
+		other.open_ = false;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move assignment operator
@@ -112,7 +120,16 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	Mixer& operator=(Mixer&& other) noexcept;
+	Mixer& operator=(Mixer&& other) noexcept {
+		if (&other == this)
+			return *this;
+		if (open_)
+			Mix_CloseAudio();
+		open_ = other.open_;
+		current_music_hook_ = std::move(other.current_music_hook_);
+		other.open_ = false;
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor
@@ -145,7 +162,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC26
 	///
 	////////////////////////////////////////////////////////////
-	int AllocateChannels(int numchans);
+	int AllocateChannels(int numchans) {
+		return Mix_AllocateChannels(numchans);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the number of channels being mixed
@@ -155,7 +174,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC26
 	///
 	////////////////////////////////////////////////////////////
-	int GetNumChannels() const;
+	int GetNumChannels() const {
+		return Mix_AllocateChannels(-1);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set the mix volume of a channel
@@ -171,7 +192,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC27
 	///
 	////////////////////////////////////////////////////////////
-	int SetVolume(int channel, int volume);
+	int SetVolume(int channel, int volume) {
+		return Mix_Volume(channel, volume);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the mix volume of a channel
@@ -185,7 +208,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC27
 	///
 	////////////////////////////////////////////////////////////
-	int GetVolume(int channel) const;
+	int GetVolume(int channel) const {
+		return Mix_Volume(channel, -1);
+	}
 
 	///@}
 
@@ -208,7 +233,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC28
 	///
 	////////////////////////////////////////////////////////////
-	int PlayChannel(int channel, const Chunk& chunk, int loops = 0);
+	int PlayChannel(int channel, const Chunk& chunk, int loops = 0) {
+		int chan;
+		if ((chan = Mix_PlayChannel(channel, chunk.Get(), loops)) == -1)
+			throw Exception("Mix_PlayChannel");
+		return chan;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Play loop and limit by time
@@ -230,7 +260,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC29
 	///
 	////////////////////////////////////////////////////////////
-	int PlayChannel(int channel, const Chunk& chunk, int loops, int ticks);
+	int PlayChannel(int channel, const Chunk& chunk, int loops, int ticks) {
+		int chan;
+		if ((chan = Mix_PlayChannelTimed(channel, chunk.Get(), loops, ticks)) == -1)
+			throw Exception("Mix_PlayChannelTimed");
+		return chan;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Play loop with fade in
@@ -250,7 +285,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC30
 	///
 	////////////////////////////////////////////////////////////
-	int FadeInChannel(int channel, const Chunk& chunk, int loops, int ms);
+	int FadeInChannel(int channel, const Chunk& chunk, int loops, int ms) {
+		int chan;
+		if ((chan = Mix_FadeInChannel(channel, chunk.Get(), loops, ms)) == -1)
+			throw Exception("Mix_FadeInChannel");
+		return chan;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief  loop with fade in and limit by time
@@ -274,7 +314,13 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC31
 	///
 	////////////////////////////////////////////////////////////
-	int FadeInChannel(int channel, const Chunk& chunk, int loops, int ms, int ticks);
+	int FadeInChannel(int channel, const Chunk& chunk, int loops, int ms, int ticks) {
+		int chan;
+		if ((chan = Mix_FadeInChannelTimed(channel, chunk.Get(), loops, ms, ticks)) == -1)
+			throw Exception("Mix_FadeInChannelTimed");
+		return chan;
+	}
+
 
 	///@}
 
@@ -289,7 +335,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC32
 	///
 	////////////////////////////////////////////////////////////
-	void PauseChannel(int channel = -1);
+	void PauseChannel(int channel = -1) {
+		Mix_Pause(channel);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Resume a paused channel
@@ -299,7 +347,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC33
 	///
 	////////////////////////////////////////////////////////////
-	void ResumeChannel(int channel = -1);
+	void ResumeChannel(int channel = -1) {
+		Mix_Resume(channel);
+	}
 
 	///@}
 
@@ -314,7 +364,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC34
 	///
 	////////////////////////////////////////////////////////////
-	void HaltChannel(int channel = -1);
+	void HaltChannel(int channel = -1) {
+		Mix_HaltChannel(channel);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Change the timed stoppage of a channel
@@ -327,7 +379,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC35
 	///
 	////////////////////////////////////////////////////////////
-	int ExpireChannel(int channel, int ticks);
+	int ExpireChannel(int channel, int ticks) {
+		return Mix_ExpireChannel(channel, ticks);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Stop playing channel after timed fade out
@@ -341,7 +395,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC36
 	///
 	////////////////////////////////////////////////////////////
-	int FadeOutChannel(int channel, int ms);
+	int FadeOutChannel(int channel, int ms) {
+		return Mix_FadeOutChannel(channel, ms);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set callback for when channel finishes playing
@@ -356,7 +412,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC37
 	///
 	////////////////////////////////////////////////////////////
-	void SetChannelFinishedHandler(ChannelFinishedHandler channel_finished);
+	void SetChannelFinishedHandler(ChannelFinishedHandler channel_finished) {
+		Mix_ChannelFinished(channel_finished);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Remove callback for when channel finishes playing
@@ -364,7 +422,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC37
 	///
 	////////////////////////////////////////////////////////////
-	void RemoveChannelFinishedHandler();
+	void RemoveChannelFinishedHandler() {
+		Mix_ChannelFinished(nullptr);
+	}
 
 	///@}
 
@@ -385,7 +445,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC38
 	///
 	////////////////////////////////////////////////////////////
-	int IsChannelPlaying(int channel) const;
+	int IsChannelPlaying(int channel) const {
+		return Mix_Playing(channel);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the pause status of a channel
@@ -401,7 +463,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC39
 	///
 	////////////////////////////////////////////////////////////
-	int IsChannelPaused(int channel) const;
+	int IsChannelPaused(int channel) const {
+		return Mix_Paused(channel);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get the fade status of a channel
@@ -413,7 +477,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC40
 	///
 	////////////////////////////////////////////////////////////
-	Mix_Fading GetChannelFading(int which) const;
+	Mix_Fading GetChannelFading(int which) const {
+		return Mix_FadingChannel(which);
+	}
 
 	///@}
 
@@ -434,7 +500,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC43
 	///
 	////////////////////////////////////////////////////////////
-	int ReserveChannels(int num);
+	int ReserveChannels(int num) {
+		return Mix_ReserveChannels(num);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Add/remove channel to/from group
@@ -449,7 +517,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC44
 	///
 	////////////////////////////////////////////////////////////
-	void GroupChannel(int which, int tag);
+	void GroupChannel(int which, int tag) {
+		if (Mix_GroupChannel(which, tag) != 1)
+			throw Exception("Mix_GroupChannel");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Add/remove segment of channels to/from group
@@ -465,7 +536,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC45
 	///
 	////////////////////////////////////////////////////////////
-	void GroupChannels(int from, int to, int tag);
+	void GroupChannels(int from, int to, int tag) {
+		if (Mix_GroupChannels(from, to, tag) != to - from + 1)
+			throw Exception("Mix_GroupChannels");
+	}
 
 	///@}
 
@@ -482,7 +556,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC46
 	///
 	////////////////////////////////////////////////////////////
-	int GetGroupNumChannels(int tag) const;
+	int GetGroupNumChannels(int tag) const {
+		return Mix_GroupCount(tag);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get first inactive channel in group
@@ -495,7 +571,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC47
 	///
 	////////////////////////////////////////////////////////////
-	int GetGroupAvailableChannel(int tag) const;
+	int GetGroupAvailableChannel(int tag) const {
+		return Mix_GroupAvailable(tag);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get oldest busy channel in group
@@ -508,7 +586,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC48
 	///
 	////////////////////////////////////////////////////////////
-	int GetGroupOldestChannel(int tag) const;
+	int GetGroupOldestChannel(int tag) const {
+		return Mix_GroupOldest(tag);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get youngest busy channel in group
@@ -521,7 +601,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC49
 	///
 	////////////////////////////////////////////////////////////
-	int GetGroupNewestChannel(int tag) const;
+	int GetGroupNewestChannel(int tag) const {
+		return Mix_GroupNewer(tag);
+	}
 
 	///@}
 
@@ -540,7 +622,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC50
 	///
 	////////////////////////////////////////////////////////////
-	int FadeOutGroup(int tag, int ms);
+	int FadeOutGroup(int tag, int ms) {
+		return Mix_FadeOutGroup(tag, ms);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Stop a group
@@ -550,7 +634,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC51
 	///
 	////////////////////////////////////////////////////////////
-	void HaltGroup(int tag);
+	void HaltGroup(int tag) {
+		Mix_HaltGroup(tag);
+	}
 
 	///@}
 
@@ -568,7 +654,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC57
 	///
 	////////////////////////////////////////////////////////////
-	void PlayMusic(const Music& music, int loops = -1);
+	void PlayMusic(const Music& music, int loops = -1) {
+		if (Mix_PlayMusic(music.Get(), loops) == -1)
+			throw Exception("Mix_PlayMusic");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Play music, with looping, and fade in
@@ -582,7 +671,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC57
 	///
 	////////////////////////////////////////////////////////////
-	void FadeInMusic(const Music& music, int loops = -1, int ms = 0);
+	void FadeInMusic(const Music& music, int loops = -1, int ms = 0) {
+		if (Mix_FadeInMusic(music.Get(), loops, ms) == -1)
+			throw Exception("Mix_FadeInMusic");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Hook for a custom music player
@@ -592,7 +684,19 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC60
 	///
 	////////////////////////////////////////////////////////////
-	void SetMusicHook(MusicHook&& hook);
+	void SetMusicHook(MusicHook&& hook) {
+		if (!hook) {
+			Mix_HookMusic(nullptr, nullptr);
+			current_music_hook_.reset(nullptr);
+			return;
+		}
+
+		current_music_hook_.reset(new MusicHook(std::move(hook)));
+
+		Mix_HookMusic([](void *udata, Uint8 *stream, int len) {
+			static_cast<std::function<void(Uint8 *stream, int len)>*>(udata)->operator()(stream, len);
+		}, current_music_hook_.get());
+	}
 
 	///@}
 
@@ -609,7 +713,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC61
 	///
 	////////////////////////////////////////////////////////////
-	int SetMusicVolume(int volume);
+	int SetMusicVolume(int volume) {
+		return Mix_VolumeMusic(volume);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get music volume
@@ -619,7 +725,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC61
 	///
 	////////////////////////////////////////////////////////////
-	int GetMusicVolume() const;
+	int GetMusicVolume() const {
+		return Mix_VolumeMusic(-1);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Pause music
@@ -627,7 +735,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC62
 	///
 	////////////////////////////////////////////////////////////
-	void PauseMusic();
+	void PauseMusic() {
+		Mix_PauseMusic();
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Resume paused music
@@ -635,7 +745,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC63
 	///
 	////////////////////////////////////////////////////////////
-	void ResumeMusic();
+	void ResumeMusic() {
+		Mix_ResumeMusic();
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Rewind music to beginning
@@ -643,7 +755,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC64
 	///
 	////////////////////////////////////////////////////////////
-	void RewindMusic();
+	void RewindMusic() {
+		Mix_RewindMusic();
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set position of playback in stream
@@ -653,7 +767,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC65
 	///
 	////////////////////////////////////////////////////////////
-	void SetMusicPosition(double position);
+	void SetMusicPosition(double position) {
+		if (Mix_SetMusicPosition(position) == -1)
+			throw Exception("Mix_SetMusicPosition");
+	}
 
 	///@}
 
@@ -666,7 +783,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC67
 	///
 	////////////////////////////////////////////////////////////
-	void HaltMusic();
+	void HaltMusic() {
+		Mix_HaltMusic();
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Stop music, with fade out
@@ -679,7 +798,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC68
 	///
 	////////////////////////////////////////////////////////////
-	bool FadeOutMusic(int ms);
+	bool FadeOutMusic(int ms) {
+		return Mix_FadeOutMusic(ms);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Set a callback for when music stops
@@ -693,7 +814,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC69
 	///
 	////////////////////////////////////////////////////////////
-	void SetMusicFinishedHandler(MusicFinishedHandler music_finished);
+	void SetMusicFinishedHandler(MusicFinishedHandler music_finished) {
+		Mix_HookMusicFinished(music_finished);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Remove a callback for when music stops
@@ -701,7 +824,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC69
 	///
 	////////////////////////////////////////////////////////////
-	void RemoveMusicFinishedHandler();
+	void RemoveMusicFinishedHandler() {
+		Mix_HookMusicFinished(nullptr);
+	}
 
 	///@}
 
@@ -716,7 +841,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC71
 	///
 	////////////////////////////////////////////////////////////
-	bool IsMusicPlaying() const;
+	bool IsMusicPlaying() const {
+		return Mix_PlayingMusic();
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Test whether music is paused
@@ -726,7 +853,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC72
 	///
 	////////////////////////////////////////////////////////////
-	bool IsMusicPaused() const;
+	bool IsMusicPaused() const {
+		return Mix_PausedMusic();
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get status of current music fade activity
@@ -736,7 +865,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC73
 	///
 	////////////////////////////////////////////////////////////
-	Mix_Fading GetMusicFading() const;
+	Mix_Fading GetMusicFading() const {
+		return Mix_FadingMusic();
+	}
 
 	///@}
 
@@ -760,7 +891,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC80
 	///
 	////////////////////////////////////////////////////////////
-	void SetPanning(int channel, Uint8 left, Uint8 right);
+	void SetPanning(int channel, Uint8 left, Uint8 right) {
+		if (Mix_SetPanning(channel, left, right) == 0)
+			throw Exception("Mix_SetPanning");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Disable stereo panning
@@ -773,7 +907,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC80
 	///
 	////////////////////////////////////////////////////////////
-	void UnsetPanning(int channel);
+	void UnsetPanning(int channel) {
+		if (Mix_SetPanning(channel, 255, 255) == 0)
+			throw Exception("Mix_SetPanning");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Distance attenuation (volume)
@@ -788,7 +925,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC81
 	///
 	////////////////////////////////////////////////////////////
-	void SetDistance(int channel, Uint8 distance);
+	void SetDistance(int channel, Uint8 distance) {
+		if (Mix_SetDistance(channel, distance) == 0)
+			throw Exception("Mix_SetDistance");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Disable distance attenuation
@@ -801,7 +941,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC81
 	///
 	////////////////////////////////////////////////////////////
-	void UnsetDistance(int channel);
+	void UnsetDistance(int channel) {
+		if (Mix_SetDistance(channel, 0) == 0)
+			throw Exception("Mix_SetDistance");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Panning (angular) and distance
@@ -820,7 +963,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC82
 	///
 	////////////////////////////////////////////////////////////
-	void SetPosition(int channel, Sint16 angle, Uint8 distance);
+	void SetPosition(int channel, Sint16 angle, Uint8 distance) {
+		if (Mix_SetPosition(channel, angle, distance) == 0)
+			throw Exception("Mix_SetPosition");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Disable panning and distance
@@ -833,7 +979,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC82
 	///
 	////////////////////////////////////////////////////////////
-	void UnsetPosition(int channel);
+	void UnsetPosition(int channel) {
+		if (Mix_SetPosition(channel, 0, 0) == 0)
+			throw Exception("Mix_SetPosition");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Swap stereo left and right
@@ -846,7 +995,10 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC83
 	///
 	////////////////////////////////////////////////////////////
-	void SetReverseStereo(int channel);
+	void SetReverseStereo(int channel) {
+		if (Mix_SetReverseStereo(channel, 1) == 0)
+			throw Exception("Mix_SetReverseStereo");
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Disable stereo swapping
@@ -859,7 +1011,11 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC83
 	///
 	////////////////////////////////////////////////////////////
-	void UnsetReverseStereo(int channel);
+	void UnsetReverseStereo(int channel) {
+		if (Mix_SetReverseStereo(channel, 0) == 0)
+			throw Exception("Mix_SetReverseStereo");
+	}
+
 
 	///@}
 };

@@ -26,7 +26,6 @@
 #include <SDL.h>
 
 #include <SDL2pp/Exception.hh>
-#include <SDL2pp/Export.hh>
 
 namespace SDL2pp {
 
@@ -58,7 +57,7 @@ namespace SDL2pp {
 /// \endcode
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT SDL {
+class SDL {
 public:
 	////////////////////////////////////////////////////////////
 	/// \brief Initializes SDL2 library

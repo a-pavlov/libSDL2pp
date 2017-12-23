@@ -33,11 +33,9 @@
 #include <SDL2pp/Optional.hh>
 #include <SDL2pp/Rect.hh>
 #include <SDL2pp/Point.hh>
-#include <SDL2pp/Export.hh>
 #include <SDL2pp/Color.hh>
 #include <SDL2pp/RWops.hh>
 #include <SDL2pp/Exception.hh>
-
 
 
 #include <SDL_surface.h>
@@ -67,7 +65,7 @@ namespace SDL2pp {
 /// \see http://wiki.libsdl.org/SDL_Surface
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT Surface {
+class Surface {
 private:
 	SDL_Surface* surface_; ///< Managed SDL_Surface object
 

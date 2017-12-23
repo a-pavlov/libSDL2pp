@@ -27,7 +27,6 @@
 
 #include <SDL_mixer.h>
 
-#include <SDL2pp/Export.hh>
 #include <SDL2pp/Exception.hh>
 #include <SDL2pp/Music.hh>
 #include <SDL2pp/RWops.hh>
@@ -42,7 +41,7 @@ namespace SDL2pp {
 /// \headerfile SDL2pp/Music.hh
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT Music {
+class Music {
 private:
 	Mix_Music* music_;    ///< Managed Mix_Music object
 

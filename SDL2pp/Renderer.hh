@@ -29,7 +29,6 @@
 #include <SDL2pp/Optional.hh>
 #include <SDL2pp/Point.hh>
 #include <SDL2pp/Rect.hh>
-#include <SDL2pp/Export.hh>
 #include <SDL2pp/Color.hh>
 #include <SDL2pp/Exception.hh>
 #include <SDL2pp/Rect.hh>

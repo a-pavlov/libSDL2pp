@@ -29,7 +29,6 @@
 
 #include <SDL2pp/Optional.hh>
 #include <SDL2pp/Point.hh>
-#include <SDL2pp/Export.hh>
 
 namespace SDL2pp {
 
@@ -48,7 +47,7 @@ namespace SDL2pp {
 /// \see http://wiki.libsdl.org/SDL_Rect
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT Rect : public SDL_Rect {
+class Rect : public SDL_Rect {
 public:
 	////////////////////////////////////////////////////////////
 	/// \brief Default constructor

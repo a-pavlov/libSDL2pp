@@ -27,13 +27,11 @@
 
 #include <SDL_mixer.h>
 
-#include <SDL2pp/Export.hh>
 #include <SDL2pp/RWops.hh>
 #include <SDL2pp/Exception.hh>
 
 namespace SDL2pp {
 
-class RWops;
 
 ////////////////////////////////////////////////////////////
 /// \brief Fragment of audio data
@@ -43,7 +41,7 @@ class RWops;
 /// \headerfile SDL2pp/Chunk.hh
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT Chunk {
+class Chunk {
 private:
 	Mix_Chunk* chunk_;    ///< Managed Mix_Chunk object
 

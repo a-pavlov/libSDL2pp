@@ -31,7 +31,6 @@
 #include <SDL2pp/Optional.hh>
 #include <SDL2pp/Point.hh>
 #include <SDL2pp/Surface.hh>
-#include <SDL2pp/Export.hh>
 #include <SDL2pp/RWops.hh>
 #include <SDL2pp/Exception.hh>
 

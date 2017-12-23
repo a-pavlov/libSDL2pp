@@ -22,7 +22,9 @@
 #ifndef SDL2PP_SDLMIXER_HH
 #define SDL2PP_SDLMIXER_HH
 
-#include <SDL2pp/Export.hh>
+#include <SDL_mixer.h>
+
+#include <SDL2pp/Exception.hh>
 
 namespace SDL2pp {
 
@@ -46,7 +48,7 @@ namespace SDL2pp {
 /// \endcode
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT SDLMixer {
+class SDLMixer {
 public:
 	////////////////////////////////////////////////////////////
 	/// \brief Initializes SDL_mixer library
@@ -58,7 +60,11 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC9
 	///
 	////////////////////////////////////////////////////////////
-	explicit SDLMixer(int flags = 0);
+	explicit SDLMixer(int flags = 0) {
+		if ((Mix_Init(flags) & flags) != flags)
+			throw Exception("Mix_Init");
+	}
+
 
 	////////////////////////////////////////////////////////////
 	/// \brief Destructor, deinitializes SDL_mixer library
@@ -66,7 +72,11 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC10
 	///
 	////////////////////////////////////////////////////////////
-	virtual ~SDLMixer();
+	virtual ~SDLMixer() {
+		// see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC10
+		while (Mix_Init(0))
+			Mix_Quit();
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Try to init more SDL_mixer formats
@@ -78,7 +88,12 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC9
 	///
 	////////////////////////////////////////////////////////////
-	int InitMore(int flags);
+	int InitMore(int flags) {
+		int ret;
+		if (((ret = Mix_Init(flags)) & flags) != flags)
+			throw Exception("Mix_Init");
+		return ret;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get mask of initialized SDL_mixer formats
@@ -86,7 +101,9 @@ public:
 	/// \see https://www.libsdl.org/projects/SDL_mixer/docs/SDL_mixer.html#SEC9
 	///
 	////////////////////////////////////////////////////////////
-	int GetInitFlags();
+	int GetInitFlags() {
+		return Mix_Init(0);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor

@@ -27,8 +27,6 @@
 
 #include <SDL_rect.h>
 
-#include <SDL2pp/Export.hh>
-
 namespace SDL2pp {
 
 ////////////////////////////////////////////////////////////
@@ -46,7 +44,7 @@ namespace SDL2pp {
 /// \see http://wiki.libsdl.org/SDL_Point
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT Point : public SDL_Point {
+class Point : public SDL_Point {
 public:
 	////////////////////////////////////////////////////////////
 	/// \brief Default constructor

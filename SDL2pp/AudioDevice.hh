@@ -28,13 +28,13 @@
 #include <SDL_audio.h>
 #include <SDL_version.h>
 
+#include <SDL2pp/Exception.hh>
+#include <SDL2pp/AudioSpec.hh>
+
 #include <SDL2pp/Optional.hh>
 #include <SDL2pp/Config.hh>
-#include <SDL2pp/Export.hh>
 
 namespace SDL2pp {
-
-class AudioSpec;
 
 ////////////////////////////////////////////////////////////
 /// \brief Audio device
@@ -47,7 +47,7 @@ class AudioSpec;
 /// audio functionality.
 ///
 ////////////////////////////////////////////////////////////
-class SDL2PP_EXPORT AudioDevice {
+class AudioDevice {
 public:
 	////////////////////////////////////////////////////////////
 	/// \brief SDL2pp::AudioDevice lock
@@ -83,7 +83,7 @@ public:
 	/// \endcode
 	///
 	////////////////////////////////////////////////////////////
-	class SDL2PP_EXPORT LockHandle {
+	class LockHandle {
 		friend class AudioDevice;
 	private:
 		AudioDevice* device_; ///< SDL2pp::AudioDevice the lock belongs to
@@ -102,7 +102,9 @@ public:
 		/// \see http://wiki.libsdl.org/SDL_LockAudioDevice
 		///
 		////////////////////////////////////////////////////////////
-		explicit LockHandle(AudioDevice* device);
+		explicit LockHandle(AudioDevice* device) : device_(device) {
+            SDL_LockAudioDevice(device_->device_id_);
+        }
 
 	public:
 		////////////////////////////////////////////////////////////
@@ -112,9 +114,9 @@ public:
 		/// assignment
 		///
 		////////////////////////////////////////////////////////////
-		LockHandle();
+		LockHandle() : device_(nullptr) { }
 
-		////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 		/// \brief Destructor
 		///
 		/// Releases the lock
@@ -122,7 +124,10 @@ public:
 		/// \see http://wiki.libsdl.org/SDL_UnlockAudioDevice
 		///
 		////////////////////////////////////////////////////////////
-		~LockHandle();
+		~LockHandle() {
+            if (device_ != nullptr)
+                SDL_UnlockAudioDevice(device_->device_id_);
+        }
 
 		////////////////////////////////////////////////////////////
 		/// \brief Move constructor
@@ -130,7 +135,9 @@ public:
 		/// \param[in] other SDL2pp::AudioDevice::LockHandle to move data from
 		///
 		////////////////////////////////////////////////////////////
-		LockHandle(LockHandle&& other) noexcept;
+		LockHandle(LockHandle&& other) noexcept : device_(other.device_) {
+            other.device_ = nullptr;
+        }
 
 		////////////////////////////////////////////////////////////
 		/// \brief Move assignment operator
@@ -140,7 +147,19 @@ public:
 		/// \returns Reference to self
 		///
 		////////////////////////////////////////////////////////////
-		LockHandle& operator=(LockHandle&& other) noexcept;
+		LockHandle& operator=(LockHandle&& other) noexcept {
+            if (&other == this)
+                return *this;
+
+            if (device_ != nullptr)
+                SDL_UnlockAudioDevice(device_->device_id_);
+
+            device_ = other.device_;
+
+            other.device_ = nullptr;
+
+            return *this;
+        }
 
 		////////////////////////////////////////////////////////////
 		/// \brief Copy constructor
@@ -148,9 +167,11 @@ public:
 		/// \param[in] other SDL2pp::AudioDevice::LockHandle to copy data from
 		///
 		////////////////////////////////////////////////////////////
-		LockHandle(const LockHandle& other);
+		LockHandle(const LockHandle& other) {
+            SDL_LockAudioDevice(device_->device_id_);
+        }
 
-		////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 		/// \brief Assignment operator
 		///
 		/// \param[in] other SDL2pp::AudioDevice::LockHandle to copy data from
@@ -158,7 +179,18 @@ public:
 		/// \returns Reference to self
 		///
 		////////////////////////////////////////////////////////////
-		LockHandle& operator=(const LockHandle& other);
+		LockHandle& operator=(const LockHandle& other) {
+            if (&other == this)
+                return *this;
+
+            if (device_ != nullptr)
+                SDL_UnlockAudioDevice(device_->device_id_);
+
+            device_ = other.device_;
+            SDL_LockAudioDevice(device_->device_id_);
+
+            return *this;
+        }
 	};
 
 	typedef std::function<void(Uint8* stream, int len)> AudioCallback; ///< Function type for audio callback
@@ -175,7 +207,10 @@ private:
 	/// runs real this->callback_
 	///
 	////////////////////////////////////////////////////////////
-	static void SDLCallback(void *userdata, Uint8* stream, int len);
+	static void SDLCallback(void *userdata, Uint8* stream, int len) {
+		AudioDevice* audiodevice = static_cast<AudioDevice*>(userdata);
+		audiodevice->callback_(stream, len);
+	}
 
 public:
 	////////////////////////////////////////////////////////////
@@ -192,7 +227,19 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_OpenAudioDevice
 	///
 	////////////////////////////////////////////////////////////
-	AudioDevice(const Optional<std::string>& device, bool iscapture, const AudioSpec& spec, AudioCallback&& callback = AudioCallback());
+	AudioDevice(const Optional<std::string>& device, bool iscapture, const AudioSpec& spec, AudioCallback&& callback = AudioCallback()) {
+		SDL_AudioSpec spec_with_callback = *spec.Get();
+		if (callback) {
+			spec_with_callback.callback = SDLCallback;
+			spec_with_callback.userdata = static_cast<void*>(this);
+		}
+		SDL_AudioSpec obtained;
+
+		if ((device_id_ = SDL_OpenAudioDevice(device ? device->c_str() : nullptr, iscapture ? 1 : 0, &spec_with_callback, &obtained, 0)) == 0)
+			throw Exception("SDL_OpenAudioDevice");
+
+		callback_ = std::move(callback);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Open audio device with desired output format
@@ -210,13 +257,30 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_OpenAudioDevice
 	///
 	////////////////////////////////////////////////////////////
-	AudioDevice(const Optional<std::string>& device, bool iscapture, AudioSpec& spec, int allowed_changes, AudioCallback&& callback = AudioCallback());
+	AudioDevice(const Optional<std::string>& device, bool iscapture, AudioSpec& spec, int allowed_changes, AudioCallback&& callback = AudioCallback()) {
+		SDL_AudioSpec spec_with_callback = *spec.Get();
+		if (callback) {
+			spec_with_callback.callback = SDLCallback;
+			spec_with_callback.userdata = static_cast<void*>(this);
+		}
+		SDL_AudioSpec obtained;
+
+		if ((device_id_ = SDL_OpenAudioDevice(device ? device->c_str() : nullptr, iscapture ? 1 : 0, &spec_with_callback, &obtained, allowed_changes)) == 0)
+			throw Exception("SDL_OpenAudioDevice");
+
+		spec.MergeChanges(obtained);
+
+		callback_ = std::move(callback);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Destructor
 	///
 	////////////////////////////////////////////////////////////
-	virtual ~AudioDevice();
+	virtual ~AudioDevice() {
+		if (device_id_ != 0)
+			SDL_CloseAudioDevice(device_id_);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move constructor
@@ -224,7 +288,9 @@ public:
 	/// \param[in] other SDL2pp::AudioDevice to move data from
 	///
 	////////////////////////////////////////////////////////////
-	AudioDevice(AudioDevice&& other) noexcept;
+	AudioDevice(AudioDevice&& other) noexcept : device_id_(other.device_id_), callback_(std::move(other.callback_)) {
+		other.device_id_ = 0;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Move constructor
@@ -234,7 +300,19 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	AudioDevice& operator=(AudioDevice&& other) noexcept;
+	AudioDevice& operator=(AudioDevice&& other) noexcept {
+		if (&other == this)
+			return *this;
+
+		if (device_id_)
+			SDL_CloseAudioDevice(device_id_);
+
+		device_id_ = other.device_id_;
+		callback_ = std::move(other.callback_);
+		other.device_id_ = 0;
+
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Deleted copy constructor
@@ -258,7 +336,9 @@ public:
 	/// \returns Managed audio device ID
 	///
 	////////////////////////////////////////////////////////////
-	SDL_AudioDeviceID Get() const;
+	SDL_AudioDeviceID Get() const {
+		return device_id_;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Pause or unpause audio playback
@@ -270,7 +350,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_PauseAudioDevice
 	///
 	////////////////////////////////////////////////////////////
-	AudioDevice& Pause(bool pause_on);
+	AudioDevice& Pause(bool pause_on) {
+		SDL_PauseAudioDevice(device_id_, pause_on ? 1 : 0);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get playback status
@@ -280,7 +363,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetAudioDeviceStatus
 	///
 	////////////////////////////////////////////////////////////
-	SDL_AudioStatus GetStatus() const;
+	SDL_AudioStatus GetStatus() const {
+		return SDL_GetAudioDeviceStatus(device_id_);
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Replace audio callback
@@ -290,7 +375,14 @@ public:
 	/// \returns Reference to self
 	///
 	////////////////////////////////////////////////////////////
-	AudioDevice& ChangeCallback(AudioCallback&& callback);
+	AudioDevice& ChangeCallback(AudioCallback&& callback) {
+		// make sure callback is not called while it's being replaced
+		LockHandle lock = Lock();
+
+		callback_ = std::move(callback);
+
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Lock audio device to prevent it from calling audio callback
@@ -304,7 +396,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_LockAudioDevice
 	///
 	////////////////////////////////////////////////////////////
-	LockHandle Lock();
+	LockHandle Lock() {
+		return LockHandle(this);
+	}
 
 #if SDL_VERSION_ATLEAST(2, 0, 4)
 	////////////////////////////////////////////////////////////
@@ -320,7 +414,11 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_QueueAudio
 	///
 	////////////////////////////////////////////////////////////
-	AudioDevice& QueueAudio(const void* data, Uint32 len);
+	AudioDevice& QueueAudio(const void* data, Uint32 len) {
+		if (SDL_QueueAudio(device_id_, data, len) != 0)
+			throw Exception("SDL_QueueAudio");
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Drop queued audio
@@ -330,7 +428,10 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_ClearQueuedAudio
 	///
 	////////////////////////////////////////////////////////////
-	AudioDevice& ClearQueuedAudio();
+	AudioDevice& ClearQueuedAudio() {
+		SDL_ClearQueuedAudio(device_id_);
+		return *this;
+	}
 
 	////////////////////////////////////////////////////////////
 	/// \brief Get number of bytes of still-queued audio
@@ -340,7 +441,9 @@ public:
 	/// \see http://wiki.libsdl.org/SDL_GetQueuedAudioSize
 	///
 	////////////////////////////////////////////////////////////
-	Uint32 GetQueuedAudioSize() const;
+	Uint32 GetQueuedAudioSize() const {
+		return SDL_GetQueuedAudioSize(device_id_);
+	}
 #endif
 };
 

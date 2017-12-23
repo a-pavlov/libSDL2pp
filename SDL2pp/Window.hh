@@ -30,10 +30,8 @@
 #include <SDL_video.h>
 
 #include <SDL2pp/Point.hh>
-#include <SDL2pp/Export.hh>
 #include <SDL2pp/Surface.hh>
 
-struct SDL_Window;
 
 namespace SDL2pp {
 
