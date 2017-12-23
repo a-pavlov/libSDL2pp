@@ -276,7 +276,7 @@ public:
 	/// \throws SDL2pp::Exception
 	///
 	////////////////////////////////////////////////////////////
-	explicit Surface(RWops& rwops) {
+	explicit Surface(const RWops& rwops) {
 		if ((surface_ = IMG_Load_RW(rwops.Get(), 0)) == nullptr)
 			throw Exception("IMG_Load_RW");
 	}
